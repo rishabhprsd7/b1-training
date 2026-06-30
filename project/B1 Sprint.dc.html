@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#F7F7F8}
+  body{font-family:'Hanken Grotesk',system-ui,-apple-system,sans-serif;color:#15151A;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  textarea,input,select{font-family:inherit}
+  ::selection{background:#CDEBE1}
+  @keyframes b1fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes b1pop{0%{transform:translateX(-50%) scale(.9);opacity:0}55%{transform:translateX(-50%) scale(1.04)}100%{transform:translateX(-50%) scale(1);opacity:1}}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#F7F7F8;padding-bottom:64px">
+
+  <div style="position:sticky;top:0;z-index:30;background:rgba(247,247,248,.82);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid #E6E6E8">
+    <div style="max-width:980px;margin:0 auto;padding:11px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:27px;height:27px;border-radius:8px;background:#0E8C6D;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;letter-spacing:-.02em">B1</div>
+        <div style="font-weight:800;font-size:16px;letter-spacing:-.02em">Sprint</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:13px">
+        <div style="font-size:13px;color:#6B6B78;font-weight:500">telc Deutsch B1</div>
+        <div style="font-size:12.5px;font-weight:700;color:#0B7359;background:#E8F5EF;padding:5px 11px;border-radius:999px;font-variant-numeric:tabular-nums">noch {{ daysLeft }} Tage</div>
+      </div>
+    </div>
+  </div>
+
+  <section data-screen-label="Hero" style="max-width:980px;margin:0 auto;padding:30px 20px 6px">
+    <div style="background:#fff;border:1px solid #E6E6E8;border-radius:18px;padding:24px 26px;display:flex;flex-wrap:wrap;gap:26px;align-items:center;justify-content:space-between">
+      <div style="min-width:230px">
+        <div style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9A9AA6">Bis zur Prüfung</div>
+        <div style="display:flex;align-items:baseline;gap:11px;margin-top:9px">
+          <div style="font-size:62px;line-height:.92;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums">{{ daysLeft }}</div>
+          <div style="font-size:18px;font-weight:600;color:#6B6B78">Tage</div>
+        </div>
+        <div style="margin-top:10px;font-size:14px;color:#6B6B78">{{ examDateLabel }}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;min-width:250px;flex:1">
+        <div style="font-size:13px;font-weight:700;color:#15151A">Bestehensgrenze — 60&thinsp;% in <em style="font-style:normal;color:#0B7359">jedem</em> Teil</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:130px;background:#F4F4F5;border:1px solid #ECECED;border-radius:12px;padding:10px 14px">
+            <div style="font-size:12px;color:#6B6B78;font-weight:600">Schriftlich</div>
+            <div style="font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:1px">135 <span style="font-size:13px;color:#9A9AA6;font-weight:600">/ 225 Pkt</span></div>
+          </div>
+          <div style="flex:1;min-width:130px;background:#F4F4F5;border:1px solid #ECECED;border-radius:12px;padding:10px 14px">
+            <div style="font-size:12px;color:#6B6B78;font-weight:600">Mündlich</div>
+            <div style="font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:1px">45 <span style="font-size:13px;color:#9A9AA6;font-weight:600">/ 75 Pkt</span></div>
+          </div>
+        </div>
+        <div style="font-size:12.5px;color:#9A9AA6">Keine Kompensation zwischen schriftlich und mündlich.</div>
+      </div>
+    </div>
+  </section>
+
+  <sc-if value="{{ ready }}" hint-placeholder-val="{{ true }}">
+  <section id="heute" data-screen-label="Heute Dashboard" style="max-width:980px;margin:0 auto;padding:24px 20px 10px">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px">
+      <div>
+        <h2 style="margin:0;font-size:27px;font-weight:800;letter-spacing:-.025em">Heute</h2>
+        <div style="font-size:14px;color:#6B6B78;margin-top:3px">{{ todayLabel }} · Tag {{ sprintDay }} deines Sprints</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #E6E6E8;border-radius:18px;padding:18px 22px;display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="position:relative;width:84px;height:84px;flex-shrink:0">
+          <svg width="84" height="84" viewBox="0 0 84 84">
+            <circle cx="42" cy="42" r="34" fill="none" stroke="#EDEDEF" stroke-width="9"></circle>
+            <circle cx="42" cy="42" r="34" fill="none" stroke="#0E8C6D" stroke-width="9" stroke-linecap="round" stroke-dasharray="{{ ringC }}" stroke-dashoffset="{{ ringOffset }}" transform="rotate(-90 42 42)" style="transition:stroke-dashoffset .6s cubic-bezier(.4,0,.2,1)"></circle>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-size:23px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums">{{ doneCount }}</div>
+            <div style="font-size:11px;color:#9A9AA6;font-weight:700">/ {{ total }}</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:15.5px;font-weight:700">{{ pctLabel }} erledigt</div>
+          <div style="font-size:13px;color:#6B6B78;margin-top:2px">Alle Kategorien heute abhaken</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:13px">
+        <div style="width:46px;height:46px;border-radius:12px;background:#FBF0E2;border:1px solid #F2DEC0;display:flex;align-items:center;justify-content:center;font-size:22px">▲</div>
+        <div>
+          <div style="font-size:22px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:#C7791F">{{ streak }}</div>
+          <div style="font-size:12.5px;color:#6B6B78;font-weight:600;margin-top:2px">Tage in Folge</div>
+        </div>
+      </div>
+
+      <sc-if value="{{ allDone }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ finishDay }}" style="background:#0E8C6D;color:#fff;font-weight:800;font-size:15px;padding:13px 22px;border-radius:13px;box-shadow:0 10px 24px -10px rgba(14,140,109,.6);animation:b1fade .3s" style-hover="background:#0c7e62">Tag abschließen →</button>
+      </sc-if>
+      <sc-if value="{{ notAllDone }}" hint-placeholder-val="{{ true }}">
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:700;color:#15151A">Noch {{ remaining }} offen</div>
+          <div style="font-size:12.5px;color:#9A9AA6;margin-top:2px">Dann Tag abschließen</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:5px;margin:0 2px 20px;flex-wrap:wrap">
+      <span style="font-size:11px;color:#9A9AA6;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-right:6px">Sprint</span>
+      <sc-for list="{{ runway }}" as="cell" hint-placeholder-count="15">
+        <sc-if value="{{ cell.done }}" hint-placeholder-val="{{ false }}"><span title="erledigt" style="width:18px;height:18px;border-radius:5px;background:#0E8C6D;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800">✓</span></sc-if>
+        <sc-if value="{{ cell.today }}" hint-placeholder-val="{{ true }}"><span title="heute" style="width:18px;height:18px;border-radius:5px;background:#fff;border:2px solid #0E8C6D"></span></sc-if>
+        <sc-if value="{{ cell.future }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;border-radius:5px;background:#E9E9EC"></span></sc-if>
+      </sc-for>
+    </div>
+
+    <button onClick="{{ heroCat.onOpen }}" style="width:100%;text-align:left;background:#E9F6F0;border:1px solid #BEE3D4;border-radius:18px;padding:22px 24px;display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between;margin-bottom:13px;transition:box-shadow .15s,transform .1s" style-hover="box-shadow:0 12px 30px -16px rgba(14,140,109,.5)">
+      <div style="min-width:240px;flex:1">
+        <div style="display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid #BEE3D4;color:#0B7359;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:999px">★ Schwerpunkt · dein Fokus</div>
+        <div style="display:flex;align-items:baseline;gap:11px;margin-top:12px">
+          <div style="font-size:27px;font-weight:800;letter-spacing:-.02em">Wortschatz</div>
+          <div style="font-size:15px;color:#6B8B80;font-weight:600">Vocabulary</div>
+        </div>
+        <div style="font-size:14.5px;color:#3F6B5C;margin-top:7px;font-weight:600">Heute: Thema „{{ vocabTheme }}“ · {{ vocabTotal }} Karten</div>
+        <div style="margin-top:13px;height:7px;background:#CDE7DC;border-radius:999px;overflow:hidden;max-width:280px">
+          <div style="height:100%;width:{{ vocabPct }};min-width:0;background:#0E8C6D;border-radius:999px;transition:width .4s"></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px">
+        <sc-if value="{{ heroCat.done }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:7px;color:#0B7359;font-weight:800;font-size:14px"><span style="width:24px;height:24px;border-radius:50%;background:#0E8C6D;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px">✓</span> Erledigt</div></sc-if>
+        <sc-if value="{{ heroCat.notDone }}" hint-placeholder-val="{{ true }}"><div style="background:#0E8C6D;color:#fff;font-weight:800;font-size:15px;padding:12px 20px;border-radius:12px">Üben →</div></sc-if>
+        <div style="font-size:12.5px;color:#6B8B80;font-weight:600">⏱ {{ heroCat.time }}</div>
+      </div>
+    </button>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:12px">
+      <sc-for list="{{ otherCats }}" as="cat" hint-placeholder-count="6">
+        <button onClick="{{ cat.onOpen }}" style="text-align:left;background:#fff;border:1px solid #E6E6E8;border-radius:16px;padding:16px 16px 13px;display:flex;flex-direction:column;gap:9px;min-height:148px;transition:border-color .15s,box-shadow .15s" style-hover="border-color:#C9C9CE;box-shadow:0 8px 22px -14px rgba(0,0,0,.22)">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+            <div>
+              <div style="font-size:16px;font-weight:700;letter-spacing:-.01em">{{ cat.de }}</div>
+              <div style="font-size:12.5px;color:#9A9AA6;font-weight:500">{{ cat.en }}</div>
+            </div>
+            <div onClick="{{ cat.onToggle }}" role="button" aria-label="Als erledigt markieren" style="flex-shrink:0;padding:2px">
+              <sc-if value="{{ cat.done }}" hint-placeholder-val="{{ false }}"><span style="display:flex;width:26px;height:26px;border-radius:50%;background:#0E8C6D;color:#fff;align-items:center;justify-content:center;font-size:14px;font-weight:800">✓</span></sc-if>
+              <sc-if value="{{ cat.notDone }}" hint-placeholder-val="{{ true }}"><span style="display:block;width:26px;height:26px;border-radius:50%;border:2px solid #D9D9DE"></span></sc-if>
+            </div>
+          </div>
+          <div style="font-size:13.5px;color:#5C5C68;line-height:1.45;flex:1">Heute: {{ cat.task }}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
+            <span style="font-size:12px;color:#9A9AA6;font-weight:600">⏱ {{ cat.time }}</span>
+            <sc-if value="{{ cat.done }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;font-weight:700;color:#0B7359">Erledigt ✓</span></sc-if>
+            <sc-if value="{{ cat.notDone }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;font-weight:700;color:#15151A">Öffnen →</span></sc-if>
+          </div>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+  </sc-if>
+
+  <sc-if value="{{ notReady }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:980px;margin:0 auto;padding:40px 20px;color:#9A9AA6;font-size:15px">Lädt …</div>
+  </sc-if>
+
+  <sc-if value="{{ isOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ close }}" style="position:fixed;inset:0;z-index:50;background:rgba(20,20,26,.34);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:22px 14px;animation:b1fade .2s">
+      <div onClick="{{ stop }}" style="width:100%;max-width:720px;margin:auto;background:#fff;border:1px solid #E6E6E8;border-radius:18px;box-shadow:0 30px 70px -24px rgba(0,0,0,.45);overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid #EFEFF1;position:sticky;top:0;background:#fff;z-index:2">
+          <div style="display:flex;align-items:center;gap:12px">
+            <button onClick="{{ close }}" aria-label="Zurück" style="width:34px;height:34px;border-radius:9px;background:#F4F4F5;color:#15151A;font-size:17px;display:flex;align-items:center;justify-content:center" style-hover="background:#E9E9EC">←</button>
+            <div>
+              <div style="font-size:17px;font-weight:800;letter-spacing:-.01em">{{ openTitle }}</div>
+              <div style="font-size:12.5px;color:#9A9AA6">{{ openTask }}</div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:#9A9AA6;font-weight:600">⏱ {{ openTime }}</div>
+        </div>
+        <div style="padding:22px">
+          <div style="font-size:14px;color:#6B6B78;line-height:1.5;margin-bottom:18px">Übung wird vorbereitet …</div>
+          <button onClick="{{ markOpenDone }}" style="background:#0E8C6D;color:#fff;font-weight:700;font-size:14px;padding:11px 18px;border-radius:11px">Als erledigt markieren</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ celebrate }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;z-index:60;background:#0E8C6D;color:#fff;padding:14px 24px;border-radius:14px;box-shadow:0 18px 44px -14px rgba(14,140,109,.6);font-weight:800;font-size:15px;animation:b1pop .45s">Tag {{ celebrateDay }} geschafft · Streak {{ streak }} Tage</div>
+  </sc-if>
+
+  <div style="max-width:980px;margin:0 auto;padding:34px 20px 0;font-size:12.5px;color:#B4B4BC;line-height:1.6">
+    B1 Sprint · dein tägliches Trainingsprogramm. Fortschritt &amp; Streak gelten für diese Sitzung. Viel Erfolg am 15. Juli!
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;}}">
+class Component extends DCLogic {
+  cats = [
+    { key: "vocab", de: "Wortschatz", en: "Vocabulary", time: "20 Min" },
+    { key: "bausteine", de: "Sprachbausteine", en: "Language elements", time: "10 Min" },
+    { key: "lesen", de: "Leseverstehen", en: "Reading", time: "15 Min" },
+    { key: "hoeren", de: "Hörverstehen", en: "Listening", time: "10 Min" },
+    { key: "schreiben", de: "Schriftlicher Ausdruck", en: "Writing", time: "20 Min" },
+    { key: "sprechen", de: "Mündlicher Ausdruck", en: "Speaking", time: "10 Min" },
+    { key: "grammatik", de: "Grammatik-Review", en: "Grammar refresher", time: "8 Min" }
+  ];
+
+  state = {
+    ready: false, content: null,
+    dayIndex: 0, streak: 0, bestStreak: 0, completedDays: [],
+    done: {}, openCat: null, celebrate: false, sprintLength: 0,
+    vocab: null, bausteine: null, lesen: null, hoeren: null, schreiben: null, sprechen: null, grammatik: null
+  };
+
+  async componentDidMount() {
+    try {
+      let C = (typeof window !== "undefined" && window.B1_CONTENT) ? window.B1_CONTENT : null;
+      if (!C) { const m = await import("./content.js"); C = m.CONTENT; }
+      this.setState({ content: C, ready: true, sprintLength: Math.max(this.daysLeft(), 7) });
+    } catch (e) { console.error("B1 content load failed", e); }
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentWillUnmount() { document.removeEventListener("keydown", this.onKey); }
+
+  onKey = (e) => {
+    if (e.key === "Escape" && this.state.openCat) this.setState({ openCat: null });
+  };
+
+  daysLeft() {
+    const ex = new Date("2026-07-15T00:00:00");
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.round((ex - t) / 86400000));
+  }
+
+  taskFor(key) {
+    const C = this.state.content, di = this.state.dayIndex;
+    if (!C) return "";
+    if (key === "vocab") { const d = C.decks[di % C.decks.length]; return "Thema „" + d.de + "“ · " + d.cards.length + " Karten"; }
+    if (key === "bausteine") return "10 Lückensätze (a / b / c)";
+    if (key === "lesen") { const l = C.lesen[di % C.lesen.length]; return ({ headline: "Teil 1 · 5 Überschriften zuordnen", mc: "Teil 2 · Text + 5 Fragen", ads: "Teil 3 · Situationen & Anzeigen" })[l.type]; }
+    if (key === "hoeren") { const h = C.hoeren[di % C.hoeren.length]; return "Richtig / Falsch · „" + h.title + "“"; }
+    if (key === "schreiben") { const w = C.schreiben[di % C.schreiben.length]; return (w.register === "informell" ? "Informelle" : "Halbformelle") + " E-Mail · 4 Leitpunkte"; }
+    if (key === "sprechen") { const s = C.sprechen[di % C.sprechen.length]; return s.teil === 2 ? "Teil 2 · Meinung sagen" : "Teil 3 · gemeinsam planen"; }
+    if (key === "grammatik") { const g = C.grammatik[di % C.grammatik.length]; return g.topic; }
+    return "";
+  }
+
+  open(k) { this.setState({ openCat: k }); }
+  close() { this.setState({ openCat: null }); }
+  toggleDone(key) { this.setState(s => ({ done: { ...s.done, [key]: !s.done[key] } })); }
+  markDone(key) { this.setState(s => ({ done: { ...s.done, [key]: true } })); }
+
+  finishDay() {
+    this.setState(s => {
+      const st = s.streak + 1;
+      return {
+        completedDays: [...s.completedDays, s.dayIndex], streak: st, bestStreak: Math.max(s.bestStreak, st),
+        dayIndex: s.dayIndex + 1, done: {}, openCat: null, celebrate: true,
+        sprintLength: Math.max(s.sprintLength, s.dayIndex + 2),
+        vocab: null, bausteine: null, lesen: null, hoeren: null, schreiben: null, sprechen: null, grammatik: null
+      };
+    });
+    setTimeout(() => this.setState({ celebrate: false }), 2600);
+  }
+
+  renderVals() {
+    const ex = new Date("2026-07-15T00:00:00");
+    const examDateLabel = ex.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const todayLabel = new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
+    const daysLeft = this.daysLeft();
+    const C = this.state.content;
+    if (!C) return { ready: false, notReady: true, daysLeft, examDateLabel, todayLabel };
+
+    const di = this.state.dayIndex;
+    const stop = (e) => { if (e && e.stopPropagation) e.stopPropagation(); };
+    const cats = this.cats.map(c => {
+      const done = !!this.state.done[c.key];
+      return { ...c, done, notDone: !done, task: this.taskFor(c.key),
+        onOpen: () => this.open(c.key),
+        onToggle: (e) => { stop(e); this.toggleDone(c.key); } };
+    });
+    const doneCount = cats.filter(c => c.done).length;
+    const total = cats.length;
+    const ringC = 213.6, ringOffset = ringC * (1 - doneCount / total);
+    const len = Math.max(this.state.sprintLength || daysLeft || 7, di + 1, 7);
+    const runway = Array.from({ length: len }, (_, i) => {
+      const done = this.state.completedDays.includes(i);
+      return { n: i + 1, done, today: i === di && !done, future: !done && i !== di };
+    });
+    const deck = C.decks[di % C.decks.length];
+    const vTotal = deck.cards.length;
+    const vSeen = this.state.vocab ? (this.state.vocab.known.length + this.state.vocab.review.length) : 0;
+    const heroCat = cats.find(c => c.key === "vocab");
+    const otherCats = cats.filter(c => c.key !== "vocab");
+    const openObj = this.state.openCat ? cats.find(c => c.key === this.state.openCat) : null;
+
+    return {
+      ready: true, notReady: false, daysLeft, examDateLabel, todayLabel,
+      sprintDay: di + 1, streak: this.state.streak, bestStreak: this.state.bestStreak,
+      doneCount, total, ringC, ringOffset, pctLabel: doneCount + " von " + total,
+      remaining: total - doneCount, allDone: doneCount === total, notAllDone: doneCount !== total,
+      runway,
+      cats, heroCat, otherCats,
+      vocabTheme: deck.de, vocabTotal: vTotal, vSeen, vocabPct: Math.round((vSeen / vTotal) * 100) + "%",
+      openCat: this.state.openCat, isOpen: !!this.state.openCat,
+      openTitle: openObj ? openObj.de : "", openTask: openObj ? openObj.task : "", openTime: openObj ? openObj.time : "",
+      celebrate: this.state.celebrate, celebrateDay: this.state.streak,
+      close: () => this.close(), stop, finishDay: () => this.finishDay(),
+      markOpenDone: () => { const k = this.state.openCat; if (k) { this.markDone(k); this.setState({ openCat: null }); } }
+    };
+  }
+}
+</script>
+</body>
+</html>
