@@ -34,10 +34,13 @@ function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-// Small "Quelle" badge shown on exercises that are real, verbatim extracts from
-// one of the supplied model tests.
+// Small "Quelle" badge shown on content that comes verbatim from a supplied
+// source — either a real telc model test or the learner's own study material.
 function srcTag(source) {
-  return source ? `<div class="src-tag"><span class="src-dot">●</span> Echte Prüfungsaufgabe · ${esc(source)}</div>` : "";
+  if (!source) return "";
+  const own = source.startsWith("Eigen");
+  const label = own ? "Dein Material" : "Echte Prüfungsaufgabe";
+  return `<div class="src-tag"><span class="src-dot">●</span> ${label} · ${esc(source)}</div>`;
 }
 
 function todayKey(d = new Date()) {
@@ -504,7 +507,7 @@ function renderVocab() {
   }
   const card = deck.cards[p.order[p.i]];
   return `
-    <div class="ex-progress">Karte ${p.i + 1} / ${total} · Thema „${esc(deck.de)}“</div>
+    ${srcTag(deck.source)}<div class="ex-progress">Karte ${p.i + 1} / ${total} · Thema „${esc(deck.de)}“</div>
     <div class="flash-stage">
       <div class="flash-card">
         <div class="flash-card-inner ${p.flipped ? "flipped" : ""}" data-action="flip">

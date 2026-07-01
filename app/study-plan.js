@@ -85,11 +85,11 @@ export const STUDY_PLAN = [
     tip: "deshalb/trotzdem → Verb Position 2; weil/obwohl/damit → Verb ans Ende. Punkte in jedem Teil." },
 
   { day: 9, date: "2026-07-09", phase: "Ausbau",
-    focus: "Verben mit Präposition · neues Testformat",
-    deck: 8, lesen: 4, hoeren: 0, schreiben: 2, sprechen: 3, grammatik: 3, bausteineStart: 30,
+    focus: "Reflexive Verben (dein PDF) · neues Testformat",
+    deck: 9, lesen: 4, hoeren: 0, schreiben: 2, sprechen: 3, grammatik: 3, bausteineStart: 30,
     bausteineFocus: "Passiv (wurde … / ist … worden)",
     paper: "P3", paperTask: "telc Übungstest (neu): Leseverstehen Teil 1–4 kennenlernen (neueres Format mit 4 Teilen). Unterschiede zum klassischen ZD notieren.",
-    goal: "Feste Verb-Präposition-Paare sicher. Neues Testformat kennenlernen. Deck „Verben mit Präposition“.",
+    goal: "Deine eigene Reflexive-Verben-Liste durcharbeiten (feste reflexive Verben + Präposition). So viele Karten wie du schaffst; Rest morgen wiederholen.",
     tip: "Lerne Verb + Präposition + Kasus immer als EIN Paket: „sich freuen auf + Akkusativ“." },
 
   { day: 10, date: "2026-07-10", phase: "Vertiefung",
