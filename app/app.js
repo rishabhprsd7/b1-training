@@ -1,4 +1,5 @@
 import { CONTENT } from "./content.js";
+import "./papers-content.js"; // appends real exam exercises to the CONTENT pools
 import { STUDY_PLAN, PAPERS } from "./study-plan.js";
 
 const STORAGE_KEY = "b1sprint-state-v1";
@@ -31,6 +32,12 @@ const CATS = [
 
 function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// Small "Quelle" badge shown on exercises that are real, verbatim extracts from
+// one of the supplied model tests.
+function srcTag(source) {
+  return source ? `<div class="src-tag"><span class="src-dot">●</span> Echte Prüfungsaufgabe · ${esc(source)}</div>` : "";
 }
 
 function todayKey(d = new Date()) {
@@ -539,8 +546,9 @@ function renderBausteine() {
       ${picked ? `<div class="q-hint">${esc(q.hint)}</div>` : ""}
     </div>`;
   }).join("");
+  const src = pool[p.idxs[0]] && pool[p.idxs[0]].source;
   return `
-    <div class="ex-intro">Wählen Sie die richtige Lösung (a / b / c).</div>
+    ${srcTag(src)}<div class="ex-intro">Wählen Sie die richtige Lösung (a / b / c).</div>
     <div class="ex-progress">${answered} / ${p.idxs.length} beantwortet · ${correct} richtig</div>
     ${rows}`;
 }
@@ -561,7 +569,7 @@ function renderLesen() {
       }).join("");
       return `<div class="q-block"><div class="q-num">Frage ${i + 1}</div><div class="q-text">${esc(q.q)}</div><div class="q-options">${optsHtml}</div></div>`;
     }).join("");
-    return `<div class="ex-intro">${esc(item.intro)}</div>
+    return `${srcTag(item.source)}<div class="ex-intro">${esc(item.intro)}</div>
       <div class="passage">${esc(item.text)}</div>
       <div class="ex-progress">${answered} / ${item.questions.length} beantwortet · ${correct} richtig</div>
       ${qHtml}`;
@@ -580,7 +588,7 @@ function renderLesen() {
       return `<div class="match-row"><div class="match-n">${t.n}</div><div class="match-text">${esc(t.body)}</div><div class="match-select">${chips}</div></div>`;
     }).join("");
     const legend = item.headlines.map(h => `<div class="ad-item"><span class="ad-id">${h.id}</span>${esc(h.text)}</div>`).join("");
-    return `<div class="ex-intro">${esc(item.intro)}</div>
+    return `${srcTag(item.source)}<div class="ex-intro">${esc(item.intro)}</div>
       <div class="ex-progress">${answered} / ${item.texts.length} beantwortet · ${correct} richtig</div>
       ${rows}
       <div class="ad-list">${legend}</div>`;
@@ -600,7 +608,7 @@ function renderLesen() {
     return `<div class="match-row"><div class="match-n">${s.n}</div><div class="match-text">${esc(s.text)}</div><div class="match-select">${chips}</div></div>`;
   }).join("");
   const legend = item.ads.map(a => `<div class="ad-item"><span class="ad-id">${a.id}</span>${esc(a.text)}</div>`).join("");
-  return `<div class="ex-intro">${esc(item.intro)}</div>
+  return `${srcTag(item.source)}<div class="ex-intro">${esc(item.intro)}</div>
     <div class="ex-progress">${answered} / ${item.situations.length} beantwortet · ${correct} richtig</div>
     ${rows}
     <div class="ad-list">${legend}</div>`;
@@ -621,7 +629,7 @@ function renderHoeren() {
     return `<div class="statement-row"><div class="statement-text">${esc(s.text)}</div><div class="rf-btns">${btn(true, "Richtig")}${btn(false, "Falsch")}</div></div>`;
   }).join("");
   return `
-    <div class="ex-intro"><strong>${esc(item.kind)}:</strong> „${esc(item.title)}“ — Tipp: Lesen Sie zuerst die Aussagen, wie in der echten Prüfung.</div>
+    ${srcTag(item.source)}<div class="ex-intro"><strong>${esc(item.kind)}:</strong> „${esc(item.title)}“ — Tipp: Lesen Sie zuerst die Aussagen, wie in der echten Prüfung.</div>
     <div class="ex-progress">${answered} / ${item.statements.length} beantwortet · ${correct} richtig</div>
     ${rows}
     <div class="transcript-toggle">
@@ -642,12 +650,15 @@ function renderSchreiben() {
       <span class="checklist-text">${esc(lp)}</span>
     </button>`;
   }).join("");
+  const n = item.leitpunkte.length;
+  const regLabel = item.register === "informell" ? "Informell" : item.register === "Kurznachricht" ? "Kurznachricht" : "Halbformell";
+  const timeLabel = item.register === "Kurznachricht" ? "10 Min" : "30 Min";
   return `
-    <div class="task-meta"><span class="task-badge">${item.register === "informell" ? "Informell" : "Halbformell"}</span><span class="task-badge">4 Leitpunkte</span><span class="task-badge">30 Min</span></div>
+    ${srcTag(item.source)}<div class="task-meta"><span class="task-badge">${regLabel}</span><span class="task-badge">${n} ${n === 1 ? "Leitpunkt" : "Leitpunkte"}</span><span class="task-badge">${timeLabel}</span></div>
     <div class="situation">${esc(item.situation)}</div>
     <div class="recipient">${esc(item.recipient)}</div>
     <div class="leitpunkte">${leitHtml}</div>
-    <div class="ex-progress">${checkedCount} / 4 Punkte abgedeckt</div>
+    <div class="ex-progress">${checkedCount} / ${n} Punkte abgedeckt</div>
     <textarea class="email-area" data-action-input="schreiben-draft" placeholder="Schreiben Sie hier Ihre E-Mail …">${esc(p.draft || "")}</textarea>
     <div><button class="mark-done-btn secondary" data-action="jump-schreibhilfe" style="margin-top:14px">→ Zur Schreibhilfe (Vorlage &amp; Redemittel)</button></div>
   `;
@@ -658,7 +669,7 @@ function renderSprechen() {
   const p = ensureProgress("sprechen");
   const cueHtml = item.cues.map(c => `<div class="cue-item"><span class="cue-dot">→</span>${esc(c)}</div>`).join("");
   return `
-    <div class="task-meta"><span class="task-badge">Teil ${item.teil}</span><span class="task-badge">${item.teil === 2 ? "Meinung äußern" : "Gemeinsam planen"}</span></div>
+    ${srcTag(item.source)}<div class="task-meta"><span class="task-badge">Teil ${item.teil}</span><span class="task-badge">${item.type === "meinung" ? "Meinung äußern" : "Gemeinsam planen"}</span></div>
     <div class="situation">${esc(item.topic)}</div>
     <div class="cue-list">${cueHtml}</div>
     <button class="checklist-item ${p.practiced ? "checked" : ""}" data-action="toggle-practiced">
