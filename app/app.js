@@ -2,6 +2,7 @@ import { CONTENT } from "./content.js";
 import "./papers-content.js"; // appends real exam exercises to the CONTENT pools
 import { STUDY_PLAN } from "./study-plan.js";
 import { getSyncMeta, setSyncMeta, syncReady, syncPull, syncPush } from "./sync.js";
+import { DOPPEL, DA_WOERTER, DA_REFLEXIV_NOTE, LERN_METHODE, SATZ_ROTATION, SPRECH_STRATEGIE, SPRECH_BEWERTUNG, SCHREIB_STRATEGIE, MUSTER_EMAIL } from "./redemittel.js";
 
 const STORAGE_KEY = "b1sprint-state-v1";
 const EXAM_DATE = new Date("2026-07-15T00:00:00");
@@ -302,7 +303,7 @@ function taskFor(key) {
   if (key === "bausteine") return "10 Lückensätze (a / b / c)";
   if (key === "lesen") { const l = CONTENT.lesen[idxFor("lesen", di)]; return ({ headline: "Teil 1 · 5 Überschriften zuordnen", mc: "Teil 2 · Text + 5 Fragen", ads: "Teil 3 · Situationen & Anzeigen" })[l.type]; }
   if (key === "hoeren") { const h = CONTENT.hoeren[idxFor("hoeren", di)]; return `Richtig / Falsch · „${h.title}“`; }
-  if (key === "schreiben") { const w = CONTENT.schreiben[idxFor("schreiben", di)]; return (w.register === "informell" ? "Informelle" : "Halbformelle") + " E-Mail · 4 Leitpunkte"; }
+  if (key === "schreiben") { const w = CONTENT.schreiben[idxFor("schreiben", di)]; const reg = w.register === "informell" ? "Informelle E-Mail" : w.register === "Kurznachricht" ? "Kurznachricht" : "Halbformelle E-Mail"; return `${reg} · ${w.leitpunkte.length} Leitpunkte`; }
   if (key === "sprechen") { const s = CONTENT.sprechen[idxFor("sprechen", di)]; return s.teil === 2 ? "Teil 2 · Meinung sagen" : "Teil 3 · gemeinsam planen"; }
   if (key === "grammatik") { const g = CONTENT.grammatik[idxFor("grammatik", di)]; return g.topic; }
   return "";
@@ -382,6 +383,7 @@ function renderSubNav() {
   <div class="container sub-nav" style="padding-top:14px">
     <a href="#heute" class="nav-btn">Heute</a>
     <a href="#uebungen" class="nav-btn">Übungen</a>
+    <a href="#vokabeln" class="nav-btn">Vokabeln</a>
     <a href="#plan" class="nav-btn">15-Tage-Plan</a>
     <a href="#schreibhilfe" class="nav-btn">Schreibhilfe</a>
     <a href="#sprechhilfe" class="nav-btn">Sprechhilfe</a>
@@ -434,6 +436,7 @@ function renderHeute() {
 
   const pd = planDay(di);
   const dayNum = Math.min(di + 1, STUDY_PLAN.length);
+  const satz = SATZ_ROTATION[di % SATZ_ROTATION.length];
   const specialBadge = pd.special === "mock-written" ? '<span class="focus-flag">📝 Prüfungssimulation schriftlich</span>'
     : pd.special === "mock-oral" ? '<span class="focus-flag">🎤 Mündliche Simulation</span>'
     : pd.special === "exam-day" ? '<span class="focus-flag">🍀 Prüfungstag</span>' : "";
@@ -451,6 +454,7 @@ function renderHeute() {
       </div>
       <div class="focus-title">${esc(pd.focus)}</div>
       <div class="focus-goal">${esc(pd.goal)}</div>
+      <div class="focus-chunk"><span class="focus-chunk-label">Satz des Tages</span> <strong>${esc(satz.k)}</strong> — ${satz.ex} <a href="#sprechhilfe" class="focus-chunk-link">Lernmethode →</a></div>
       <div class="focus-tip"><span class="focus-tip-label">Tipp</span> ${esc(pd.tip)}</div>
     </div>
 
@@ -561,9 +565,32 @@ function renderSchreibhilfe() {
       <div class="bank-group-title">${esc(label)}</div>
       ${phrases.map(p => `<div class="bank-phrase">${esc(p)}</div>`).join("")}
     </div>`).join("");
+  const zeit = SCHREIB_STRATEGIE.zeit.map(z => `
+    <div class="template-row"><div class="template-step">${esc(z.t)}</div><div class="template-body"><div class="de">${esc(z.was)}</div></div></div>`).join("");
+  const kriterien = SCHREIB_STRATEGIE.kriterien.map(k => `
+    <div class="template-row"><div class="template-step" style="width:150px">${esc(k.k)}</div><div class="template-body"><div class="de" style="font-weight:500">${esc(k.d)}</div></div></div>`).join("");
+  const checkliste = SCHREIB_STRATEGIE.checkliste.map(c => `<div class="strat-tip">☐ ${esc(c)}</div>`).join("");
+
   return `
   <section id="schreibhilfe" class="section container">
-    <div class="section-head"><div><h2 class="section-title">Schreibhilfe</h2><div class="section-sub">E-Mail-Vorlage &amp; Redemittel für Schriftlicher Ausdruck</div></div></div>
+    <div class="section-head"><div><h2 class="section-title">Schreibhilfe</h2><div class="section-sub">Strategie, Muster-E-Mail &amp; Redemittel für den Schriftlichen Ausdruck (30 Min · 45 Punkte)</div></div></div>
+
+    <div class="helper-card">
+      <div class="helper-title">30 Minuten klug nutzen</div>
+      <div class="template-list">${zeit}</div>
+      <div class="helper-title" style="margin-top:20px;font-size:15px">So wird bewertet</div>
+      <div class="template-list">${kriterien}</div>
+      <div class="helper-title" style="margin-top:20px;font-size:15px">Vor dem Abgeben — 20-Sekunden-Check</div>
+      ${checkliste}
+    </div>
+
+    <div class="helper-card muster-card">
+      <div class="helper-title">Muster-E-Mail zum Auswendiglernen</div>
+      <div class="helper-sub">Aufgabe: ${esc(MUSTER_EMAIL.aufgabe)}</div>
+      <div class="muster-body">${MUSTER_EMAIL.html}</div>
+      <div class="vok-note" style="margin-top:12px">${esc(MUSTER_EMAIL.hinweis)}</div>
+    </div>
+
     <div class="helper-card">
       <div class="helper-title">Aufbau einer E-Mail</div>
       <div class="template-list">${steps}</div>
@@ -581,10 +608,102 @@ function renderSprechhilfe() {
       <div class="bank-group-title">${esc(label)}</div>
       ${phrases.map(p => `<div class="bank-phrase">${esc(p)}</div>`).join("")}
     </div>`).join("");
+
+  const strategie = SPRECH_STRATEGIE.map(s => `
+    <div class="strat-block">
+      <div class="strat-title">${esc(s.teil)}</div>
+      ${s.tipps.map(t => `<div class="strat-tip">→ ${esc(t)}</div>`).join("")}
+    </div>`).join("");
+
+  // Beispiele in DOPPEL/DA_WOERTER sind selbst geschriebenes, vertrauenswürdiges
+  // HTML (mark-Hervorhebungen) — bewusst ohne esc() gerendert.
+  const konRow = d => `
+    <div class="kon-row">
+      <div class="kon-head"><span class="kon-frame">${esc(d.k)}</span><span class="kon-en">${esc(d.en)}</span></div>
+      <div class="kon-ex">${d.ex}</div>
+      <div class="kon-use">${esc(d.use)}</div>
+    </div>`;
+
+  const heute = SATZ_ROTATION[state.dayIndex % SATZ_ROTATION.length];
+  const tage = SATZ_ROTATION.map((s, i) => {
+    const isToday = i === state.dayIndex % SATZ_ROTATION.length;
+    return `<div class="lern-tag ${isToday ? "today" : ""}"><span class="lern-tag-n">${i + 1}</span>${esc(s.k)}</div>`;
+  }).join("");
+
   return `
   <section id="sprechhilfe" class="section container">
-    <div class="section-head"><div><h2 class="section-title">Sprechhilfe</h2><div class="section-sub">Redemittel für Mündlicher Ausdruck — vorschlagen, zustimmen, widersprechen, Kompromiss finden</div></div></div>
-    <div class="helper-card"><div class="bank-grid">${bankGroups}</div></div>
+    <div class="section-head"><div><h2 class="section-title">Sprechhilfe</h2><div class="section-sub">Strategie, Doppelkonnektoren &amp; da-Wörter — die Sätze, die dich in der mündlichen Prüfung tragen</div></div></div>
+
+    <div class="helper-card">
+      <div class="helper-title">So läuft die mündliche Prüfung (und was zählt)</div>
+      <div class="helper-sub">${esc(SPRECH_BEWERTUNG)}</div>
+      <div class="strat-grid">${strategie}</div>
+    </div>
+
+    <div class="helper-card">
+      <div class="helper-title">Doppelkonnektoren — dein Lernblatt als Sprech-Chunks</div>
+      <div class="helper-sub">Ein auswendig gelernter Beispielsatz pro Konnektor. In Teil 2 und 3 einsetzen — sie heben dich sofort von reinem „und/aber“-Deutsch ab.</div>
+      ${DOPPEL.map(konRow).join("")}
+    </div>
+
+    <div class="helper-card">
+      <div class="helper-title">da-Wörter (darauf, darüber, dafür …)</div>
+      <div class="helper-sub">${esc(DA_REFLEXIV_NOTE)}</div>
+      ${DA_WOERTER.map(konRow).join("")}
+    </div>
+
+    <div class="helper-card">
+      <div class="helper-title">So lernst du die Sätze — Empfehlung für die letzten Tage</div>
+      <ol class="lern-steps">${LERN_METHODE.map(m => `<li>${esc(m)}</li>`).join("")}</ol>
+      <div class="vok-note" style="margin-top:12px">Heutiger Chunk: <strong>${esc(heute.k)}</strong> — er erscheint auch oben im „Heute“-Banner und in deiner Sprechen-Übung.</div>
+      <div class="lern-plan">${tage}</div>
+    </div>
+
+    <div class="helper-card">
+      <div class="helper-title">Redemittel-Bank</div>
+      <div class="bank-grid">${bankGroups}</div>
+    </div>
+  </section>`;
+}
+
+// ------------------------------------------------------------------ Vokabeln (reflexive Verben)
+function renderVokabeln() {
+  const deckIdx = CONTENT.decks.findIndex(d => d.id === "reflexiv");
+  const deck = CONTENT.decks[deckIdx];
+  if (!deck) return "";
+  const g2 = deck.cards.findIndex(c => c.de === "sich abtrocknen");
+  const g3 = deck.cards.findIndex(c => c.de.startsWith("sich (Dativ) etwas ansehen"));
+  const groups = [
+    { title: "1 · Feste reflexive Verben (oft + Präposition)", note: "Immer als Paket lernen: Verb + Präposition + Kasus.", cards: deck.cards.slice(0, g2), open: true },
+    { title: "2 · Subjekt = Objekt (nicht fest reflexiv)", note: "Reflexiv, wenn man es mit sich selbst macht: Ich wasche mich.", cards: deck.cards.slice(g2, g3), open: false },
+    { title: "3 · Mit Akkusativ-Objekt → Dativ-Reflexiv", note: "Gibt es schon ein Akkusativ-Objekt, wird das Reflexivpronomen Dativ: Ich wasche mir die Hände.", cards: deck.cards.slice(g3), open: false }
+  ];
+  const groupHtml = groups.map(g => `
+    <details class="vok-group" ${g.open ? "open" : ""}>
+      <summary class="vok-summary">${esc(g.title)} <span class="lib-count">${g.cards.length}</span></summary>
+      <div class="vok-note">${esc(g.note)}</div>
+      <div class="vok-list">
+        ${g.cards.map(c => `
+        <div class="vok-row">
+          <div class="vok-de">${esc(c.de)}</div>
+          <div class="vok-en">${esc(c.en)}</div>
+          <div class="vok-ex">„${esc(c.ex)}“</div>
+        </div>`).join("")}
+      </div>
+    </details>`).join("");
+  const doppelIdx = CONTENT.decks.findIndex(d => d.id === "doppel");
+  return `
+  <section id="vokabeln" class="section container">
+    <div class="section-head">
+      <div><h2 class="section-title">Vokabeln · Reflexive Verben</h2><div class="section-sub">Deine komplette Liste (aus deinem PDF) als Nachschlagewerk — ${deck.cards.length} Verben in 3 Gruppen</div></div>
+    </div>
+    <div class="helper-card">
+      <div class="sync-actions" style="margin-bottom:16px">
+        <button class="mock-add-btn" data-action="open-lib" data-kind="vocab" data-index="${deckIdx}">🃏 Als Karten trainieren</button>
+        <button class="mark-done-btn secondary" data-action="open-lib" data-kind="vocab" data-index="${doppelIdx}">Doppelkonnektoren-Karten →</button>
+      </div>
+      ${groupHtml}
+    </div>
   </section>`;
 }
 
@@ -825,10 +944,12 @@ function renderSchreiben(item, p) {
 
 function renderSprechen(item, p) {
   const cueHtml = item.cues.map(c => `<div class="cue-item"><span class="cue-dot">→</span>${esc(c)}</div>`).join("");
+  const satz = SATZ_ROTATION[state.dayIndex % SATZ_ROTATION.length];
   return `
     ${srcTag(item.source)}<div class="task-meta"><span class="task-badge">Teil ${item.teil}</span><span class="task-badge">${item.type === "meinung" ? "Meinung äußern" : "Gemeinsam planen"}</span></div>
     <div class="situation">${esc(item.topic)}</div>
     <div class="cue-list">${cueHtml}</div>
+    <div class="q-hint" style="display:block;margin:0 0 14px">💬 Bau heute deinen Chunk ein: <strong>${esc(satz.k)}</strong> — ${satz.ex}</div>
     <button class="checklist-item ${p.practiced ? "checked" : ""}" data-action="toggle-practiced">
       <span class="check-box">${p.practiced ? "✓" : ""}</span>
       <span class="checklist-text">Ich habe laut geübt (allein oder mit Partner) und „Was denkst du dazu?“ benutzt.</span>
@@ -1157,12 +1278,13 @@ function render() {
       ${renderSubNav()}
       ${renderHeute()}
       ${renderUebungen()}
+      ${renderVokabeln()}
       ${renderPlan()}
       ${renderSchreibhilfe()}
       ${renderSprechhilfe()}
       ${renderMockLog()}
       ${renderSync()}
-      <div class="footer-note">B1 Sprint · dein tägliches Trainingsprogramm. Fortschritt &amp; Streak werden lokal in diesem Browser gespeichert. Viel Erfolg am 15. Juli!</div>
+      <div class="footer-note">B1 Sprint · dein tägliches Trainingsprogramm. Fortschritt &amp; Streak werden automatisch auf allen Geräten synchronisiert. Viel Erfolg am 15. Juli!</div>
     </div>
     ${renderModal()}
     ${renderMockRun()}

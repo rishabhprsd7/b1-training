@@ -78,7 +78,7 @@ export const STUDY_PLAN = [
 
   { day: 8, date: "2026-07-08", phase: "Ausbau",
     focus: "Konnektoren-Deck · Satzbau",
-    deck: 7, lesen: 2, hoeren: 3, schreiben: 1, sprechen: 1, grammatik: 2, bausteineStart: 16,
+    deck: 7, lesen: 2, hoeren: 3, schreiben: 1, sprechen: 1, grammatik: 5, bausteineStart: 16,
     bausteineFocus: "Konjunktiv II (hätte / würde)",
     paper: "P2", paperTask: "Zertifikat-Deutsch-Übungstest: Hörverstehen komplett + Schriftlicher Ausdruck (Brief). Sprechen Teil 1–3 laut durchgehen.",
     goal: "Konnektoren aktiv beherrschen – sie tragen Schreiben UND Sprechen. Deck „Konnektoren“.",
@@ -94,8 +94,8 @@ export const STUDY_PLAN = [
 
   { day: 10, date: "2026-07-10", phase: "Vertiefung",
     focus: "Review Schwachstelle: Gesundheit",
-    deck: 2, lesen: 1, hoeren: 1, schreiben: 3, sprechen: 2, grammatik: 4, bausteineStart: 31,
-    bausteineFocus: "Verben mit Präposition (denken an, warten auf, Angst vor)",
+    deck: 2, lesen: 1, hoeren: 1, schreiben: 3, sprechen: 2, grammatik: 6, bausteineStart: 31,
+    bausteineFocus: "Verben mit Präposition (denken an, warten auf, Angst vor) + da-Wörter",
     paper: "P3", paperTask: "telc Übungstest (neu): Hörverstehen Teil 1–4 (inkl. Teil 4 „fünf Meinungen zuordnen“) + Sprachbausteine.",
     goal: "Schwierige Decks gezielt wiederholen. Volles Hörverstehen im neuen Format.",
     tip: "Nur die Karten wiederholen, die du „nochmal üben“ markiert hast – dort sitzt der Lerngewinn." },
@@ -127,7 +127,7 @@ export const STUDY_PLAN = [
 
   { day: 14, date: "2026-07-14", phase: "Feinschliff",
     focus: "Zweite Simulation & mündliche Generalprobe",
-    deck: 7, lesen: 2, hoeren: 1, schreiben: 6, sprechen: 7, grammatik: 4, bausteineStart: 40,
+    deck: 10, lesen: 2, hoeren: 1, schreiben: 6, sprechen: 7, grammatik: 5, bausteineStart: 40,
     special: "mock-oral",
     paper: "P1", paperTask: "Generalprobe: telc Übungstest 1 schriftlich auf Zeit + MÜNDLICHE Prüfung komplett simulieren. In-App echte Aufgabe: Mündlich Teil 3 „Abschiedsparty planen“ (Teil 1 kennenlernen · Teil 2 Thema · Teil 3 planen).",
     goal: "Letzte Vollprobe schriftlich + mündlich. Danach früh schlafen.",

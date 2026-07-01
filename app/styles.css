@@ -207,6 +207,53 @@ h1,h2,h3,p{margin:0}
 .del-btn{color:#9A9AA6;font-size:12px;font-weight:700}
 .del-btn:hover{color:#C4432E}
 
+/* ---------------- focus chunk (Satz des Tages) ---------------- */
+.focus-chunk{font-size:13.5px;line-height:1.55;color:#E4E4EA;margin-top:11px;background:rgba(143,227,200,.1);border:1px solid rgba(143,227,200,.25);border-radius:10px;padding:10px 13px}
+.focus-chunk mark{background:rgba(143,227,200,.25);color:#B7F0DC;border-radius:4px;padding:0 3px}
+.focus-chunk-label{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#15151A;background:#8FE3C8;padding:2px 7px;border-radius:6px;margin-right:7px;vertical-align:middle}
+.focus-chunk-link{color:#8FE3C8;font-weight:700;text-decoration:none;white-space:nowrap}
+.focus-chunk-link:hover{text-decoration:underline}
+
+/* ---------------- Sprechhilfe: Strategie & Konnektoren ---------------- */
+.strat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.strat-block{background:#F7F7F8;border-radius:14px;padding:14px 16px}
+.strat-title{font-size:13.5px;font-weight:800;color:#0B7359;margin-bottom:9px}
+.strat-tip{font-size:13.5px;line-height:1.55;color:#3A3A42;margin-bottom:7px}
+.kon-row{padding:14px 2px;border-top:1px solid #EFEFF1}
+.kon-row:first-of-type{border-top:none}
+.kon-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.kon-frame{font-size:15.5px;font-weight:800;letter-spacing:-.01em;color:#15151A;background:#E9F6F0;border:1px solid #BEE3D4;padding:3px 10px;border-radius:8px}
+.kon-en{font-size:12.5px;color:#9A9AA6;font-weight:600}
+.kon-ex{font-size:14.5px;line-height:1.6;color:#33333B;margin-bottom:5px}
+.kon-ex mark,.muster-body mark{background:#DCF3E9;color:#0B7359;font-weight:700;border-radius:4px;padding:0 3px}
+.kon-use{font-size:12.5px;line-height:1.5;color:#6B6B78}
+.lern-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.55;color:#3A3A42}
+.lern-plan{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.lern-tag{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#5C5C68;background:#F4F4F5;border:1px solid #ECECED;padding:5px 10px;border-radius:999px}
+.lern-tag.today{background:#0E8C6D;border-color:#0E8C6D;color:#fff}
+.lern-tag-n{font-size:10.5px;font-weight:800;color:#9A9AA6;background:#fff;border-radius:999px;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center}
+.lern-tag.today .lern-tag-n{color:#0B7359}
+
+/* ---------------- Muster-E-Mail ---------------- */
+.muster-body{background:#F7F7F8;border:1px solid #ECECED;border-radius:14px;padding:18px 20px;font-size:14.5px;line-height:1.75;color:#26262E}
+.muster-body p{margin:0 0 12px}
+.muster-body p:last-child{margin-bottom:0}
+.lp-badge{display:inline-block;font-size:10.5px;font-weight:800;color:#8A5A12;background:#FBF1E2;border:1px solid #F2DEC0;padding:1px 8px;border-radius:999px;vertical-align:middle;white-space:nowrap}
+
+/* ---------------- Vokabeln (reflexive Verben) ---------------- */
+.vok-group{border:1px solid #ECECED;border-radius:14px;margin-bottom:12px;overflow:hidden}
+.vok-summary{cursor:pointer;padding:14px 16px;font-size:15px;font-weight:800;letter-spacing:-.01em;background:#F7F7F8;display:flex;align-items:center;gap:10px;list-style:none}
+.vok-summary::-webkit-details-marker{display:none}
+.vok-summary::before{content:"▸";color:#0E8C6D;font-size:13px;transition:transform .15s}
+.vok-group[open] .vok-summary::before{transform:rotate(90deg)}
+.vok-note{font-size:12.5px;color:#6B6B78;line-height:1.5;padding:10px 16px;background:#FDFDFD;border-bottom:1px solid #F2F2F4}
+.vok-list{display:flex;flex-direction:column}
+.vok-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(140px,.8fr) 1.4fr;gap:6px 16px;align-items:baseline;padding:10px 16px;border-top:1px solid #F2F2F4}
+.vok-de{font-size:14px;font-weight:700}
+.vok-en{font-size:13px;color:#6B6B78}
+.vok-ex{font-size:13px;color:#8A8A96;font-style:italic}
+@media (max-width:720px){ .vok-row{grid-template-columns:1fr 1fr} .vok-ex{grid-column:1 / -1} }
+
 /* ---------------- sync ---------------- */
 .sync-status-row{display:flex;align-items:center;gap:9px;margin-bottom:14px;font-size:14px;font-weight:700}
 .sync-dot{width:10px;height:10px;border-radius:50%;background:#C9C9CE;flex-shrink:0}
