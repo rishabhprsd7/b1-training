@@ -1,7 +1,8 @@
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:#F7F7F8}
 body{font-family:'Hanken Grotesk',system-ui,-apple-system,sans-serif;color:#15151A;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;touch-action:manipulation}
+*{-webkit-tap-highlight-color:transparent}
 textarea,input,select{font-family:inherit}
 ::selection{background:#CDEBE1}
 h1,h2,h3,p{margin:0}
@@ -352,9 +353,49 @@ h1,h2,h3,p{margin:0}
 .loading{padding:40px 20px;color:#9A9AA6;font-size:15px}
 .footer-note{padding:34px 20px 0;font-size:12.5px;color:#B4B4BC;line-height:1.6}
 
-@media (max-width:600px){
+@media (max-width:640px){
   .countdown-num .n{font-size:48px}
   .status-card{flex-direction:column;align-items:stretch}
   .streak-box{justify-content:space-between}
   .remaining-hint{text-align:left}
+
+  /* iOS zooms into inputs with font-size < 16px — keep them at 16px on mobile */
+  input,textarea,select{font-size:16px}
+
+  /* tighter chrome so content gets the width */
+  .section{padding:20px 14px 8px}
+  .hero{padding:22px 14px 4px}
+  .hero-card{padding:18px 16px}
+  .container{padding-left:14px;padding-right:14px}
+  .overlay{padding:8px 5px}
+  .modal-body{padding:16px 12px}
+  .modal-head{padding:13px 12px}
+
+  /* matching tasks: stack text above the answer chips instead of squeezing */
+  .match-row{flex-wrap:wrap}
+  .match-text{flex-basis:calc(100% - 36px)}
+  .match-select{width:100%;padding-left:36px}
+  .chip-btn{width:38px;height:38px}
+
+  /* Richtig/Falsch rows: statement on top, buttons full-width below */
+  .statement-row{flex-wrap:wrap}
+  .statement-text{flex-basis:100%}
+  .rf-btns{width:100%}
+  .rf-btn{flex:1;width:auto;padding:11px 0}
+
+  /* bigger tap targets */
+  .opt-btn{padding:11px 15px}
+  .flash-btn{padding:15px}
+  .cat-toggle .on,.cat-toggle .off{width:30px;height:30px}
+
+  /* mock */
+  .mock-nav{flex-wrap:wrap}
+  .mock-nav .mark-done-btn{flex:1;text-align:center}
+  .mock-table{display:block;overflow-x:auto;white-space:nowrap}
+  .mock-start-card{align-items:stretch}
+  .mock-start-card .finish-btn{width:100%;text-align:center}
+
+  .hero-cat{padding:18px 16px}
+  .hero-title-row .de{font-size:23px}
+  .section-title{font-size:24px}
 }

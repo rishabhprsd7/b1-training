@@ -1019,12 +1019,13 @@ function updateMockTimer() {
 function startMock() { setState({ mock: buildMock(), openCat: null, openLib: null }); startMockTimer(); }
 function submitMock() {
   stopMockTimer();
+  overlayToTop = true;
   const m = { ...state.mock, submitted: true, reviewing: false, i: 0, durationMs: Date.now() - state.mock.startedAt };
   const res = scoreMock(m);
   const run = { id: m.id, date: todayKey(), pct: res.pct, points: res.points, max: res.max, pass: res.pass, scaled: res.scaled, sec: res.sec, durationMs: m.durationMs };
   setState({ mock: m, mockRuns: [run, ...state.mockRuns].slice(0, 30) });
 }
-function mockNav(delta) { const m = state.mock; setState({ mock: { ...m, i: Math.max(0, Math.min(m.parts.length - 1, m.i + delta)) } }); }
+function mockNav(delta) { const m = state.mock; overlayToTop = true; setState({ mock: { ...m, i: Math.max(0, Math.min(m.parts.length - 1, m.i + delta)) } }); }
 
 function renderMockRun() {
   const m = state.mock;
@@ -1087,6 +1088,7 @@ function renderMockResult(m) {
 }
 
 function renderModal() {
+  if (state.mock) return ""; // the mock has its own overlay (renderMockRun)
   const ctx = currentCtx();
   if (!ctx) return "";
   if (ctx.mode === "lib") return renderLibModal(ctx);
@@ -1143,6 +1145,11 @@ function renderLibModal(ctx) {
 
 function render() {
   const root = document.getElementById("root");
+  // Full re-render resets scroll to top; remember page + modal scroll and restore
+  // after, so answering a question doesn't throw the user back to the top.
+  const winY = window.scrollY;
+  const oldOverlay = document.querySelector(".overlay");
+  const overlayY = oldOverlay ? oldOverlay.scrollTop : 0;
   root.innerHTML = `
     <div class="wrap">
       ${renderHeader()}
@@ -1161,7 +1168,18 @@ function render() {
     ${renderMockRun()}
     ${renderCelebrate()}
   `;
+  window.scrollTo(0, winY);
+  const newOverlay = document.querySelector(".overlay");
+  if (newOverlay) {
+    if (overlayToTop) newOverlay.scrollTop = 0;
+    else if (oldOverlay) newOverlay.scrollTop = overlayY;
+  }
+  overlayToTop = false;
 }
+
+// Set by navigation actions (next mock part, result screen) where the new modal
+// content should start at the top instead of inheriting the old scroll.
+let overlayToTop = false;
 
 function readMockInput(id, max) {
   const v = parseInt(document.getElementById(id).value, 10);
@@ -1209,8 +1227,8 @@ function onClick(e) {
   if (action === "mock-submit") { submitMock(); return; }
   if (action === "mock-abort") { stopMockTimer(); setState({ mock: null }); return; }
   if (action === "mock-close") { stopMockTimer(); setState({ mock: null }); return; }
-  if (action === "mock-review") { setState({ mock: { ...state.mock, reviewing: true, i: 0 } }); return; }
-  if (action === "mock-to-result") { setState({ mock: { ...state.mock, reviewing: false, i: 0 } }); return; }
+  if (action === "mock-review") { overlayToTop = true; setState({ mock: { ...state.mock, reviewing: true, i: 0 } }); return; }
+  if (action === "mock-to-result") { overlayToTop = true; setState({ mock: { ...state.mock, reviewing: false, i: 0 } }); return; }
 
   if (action === "finish-day") { finishDay(); return; }
   if (action === "flash-known") { advanceVocab("known"); return; }
