@@ -1,7 +1,7 @@
 import { CONTENT } from "./content.js";
 import "./papers-content.js"; // appends real exam exercises to the CONTENT pools
 import { STUDY_PLAN } from "./study-plan.js";
-import { getSyncCfg, setSyncCfg, syncConfigured, syncReady, syncPull, syncPush, randomCode } from "./sync.js";
+import { getSyncMeta, setSyncMeta, syncReady, syncPull, syncPush } from "./sync.js";
 
 const STORAGE_KEY = "b1sprint-state-v1";
 const EXAM_DATE = new Date("2026-07-15T00:00:00");
@@ -162,8 +162,8 @@ async function doSyncPush() {
   setSyncStatus("Speichere …");
   try {
     await syncPush(stateBlob(), state.updatedAt || 0);
-    setSyncCfg({ lastSync: Date.now() });
-    setSyncStatus("gespeichert " + fmtClock(Date.now()));
+    setSyncMeta({ lastSync: Date.now() });
+    setSyncStatus("aktuell · " + fmtClock(Date.now()));
   } catch (e) { setSyncStatus("Fehler: " + e.message); }
   finally { syncBusy = false; }
 }
@@ -173,25 +173,34 @@ function applyRemote(data) {
   persistLocalOnly();
   render();
 }
+// On load: the cloud is the source of truth — take remote unless this device has
+// newer unsynced (offline) changes, in which case push them up.
 async function doInitialSync() {
   if (!syncReady()) return;
   setSyncStatus("Synchronisiere …");
   try {
     const remote = await syncPull();
-    if (remote && remote.updated > (state.updatedAt || 0)) { applyRemote(remote.data); setSyncStatus("geladen " + fmtClock(Date.now())); }
-    else { await syncPush(stateBlob(), state.updatedAt || 0); setSyncStatus("gespeichert " + fmtClock(Date.now())); }
-    setSyncCfg({ lastSync: Date.now() });
-  } catch (e) { setSyncStatus("Fehler: " + e.message); }
+    if (remote && remote.updated >= (state.updatedAt || 0)) { applyRemote(remote.data); setSyncStatus("aktuell · " + fmtClock(Date.now())); }
+    else { await syncPush(stateBlob(), state.updatedAt || 0); setSyncStatus("aktuell · " + fmtClock(Date.now())); }
+    setSyncMeta({ lastSync: Date.now() });
+  } catch (e) { setSyncStatus("Offline / Fehler: " + e.message); }
 }
-async function pullNow() {
-  if (!syncConfigured()) return;
-  setSyncStatus("Lade …"); render();
+// Refresh from cloud (manual button, and when the app regains focus).
+let lastFocusPull = 0;
+async function pullFresh(force) {
+  if (!syncReady() || syncBusy) return;
+  const now = Date.now();
+  if (!force && now - lastFocusPull < 4000) return;
+  lastFocusPull = now;
+  syncBusy = true;
+  if (force) { setSyncStatus("Aktualisiere …"); render(); }
   try {
     const remote = await syncPull();
-    if (remote) { applyRemote(remote.data); setSyncStatus("geladen " + fmtClock(Date.now())); }
-    else setSyncStatus("nichts in der Cloud");
-    setSyncCfg({ lastSync: Date.now() });
-  } catch (e) { setSyncStatus("Fehler: " + e.message); render(); }
+    if (remote && remote.updated > (state.updatedAt || 0)) applyRemote(remote.data);
+    setSyncStatus("aktuell · " + fmtClock(Date.now()));
+    setSyncMeta({ lastSync: Date.now() });
+  } catch (e) { setSyncStatus("Offline / Fehler: " + e.message); }
+  finally { syncBusy = false; if (force) render(); }
 }
 
 // ---- exercise context (works for both the daily plan and the free library) ----
@@ -929,33 +938,23 @@ function renderUebungen() {
 
 // ------------------------------------------------------------------ Sync
 function renderSync() {
-  const c = getSyncCfg();
-  const configured = syncConfigured();
-  const statusText = syncStatus || (c.lastSync ? "zuletzt " + fmtClock(c.lastSync) : "");
+  const c = getSyncMeta();
+  const ready = syncReady();
+  const statusText = syncStatus || (c.lastSync ? "aktuell · " + fmtClock(c.lastSync) : "verbinde …");
   return `
   <section id="sync" class="section container">
-    <div class="section-head"><div><h2 class="section-title">Sync</h2><div class="section-sub">Fortschritt geräteübergreifend synchronisieren (Supabase). Gleicher Sync-Code auf allen Geräten = gleiche Daten.</div></div></div>
+    <div class="section-head"><div><h2 class="section-title">Sync</h2><div class="section-sub">Dein Fortschritt ist automatisch auf allen Geräten gleich und immer aktuell. Kein Login, keine Einrichtung.</div></div></div>
     <div class="helper-card">
       <div class="sync-status-row">
-        <span class="sync-dot ${c.enabled ? "on" : ""}"></span>
-        <span class="sync-state-label">${c.enabled ? "Sync aktiv" : "Sync aus"}</span>
+        <span class="sync-dot ${ready ? "on" : ""}"></span>
+        <span class="sync-state-label">${ready ? "Automatische Synchronisierung aktiv" : "Sync nicht verfügbar"}</span>
         <span id="sync-status" class="sync-status">${esc(statusText)}</span>
       </div>
-      <div class="sync-form">
-        <div class="mock-field"><label for="sync-url">Supabase URL</label><input id="sync-url" value="${esc(c.url)}" placeholder="https://xxxx.supabase.co"></div>
-        <div class="mock-field"><label for="sync-key">Anon public key</label><input id="sync-key" value="${esc(c.key)}" placeholder="eyJhbGciOi… (Settings → API)"></div>
-        <div class="mock-field"><label for="sync-code">Sync-Code (geheim · auf allen Geräten identisch)</label>
-          <div style="display:flex;gap:8px"><input id="sync-code" value="${esc(c.code)}" placeholder="dein-geheimer-code"><button class="mark-done-btn secondary" data-action="sync-gen-code" style="flex-shrink:0">Erzeugen</button></div>
-        </div>
-      </div>
       <div class="sync-actions">
-        <button class="mock-add-btn" data-action="sync-save">Verbinden &amp; synchronisieren</button>
-        <button class="mark-done-btn secondary" data-action="sync-pull-now" ${configured ? "" : "disabled"}>⇩ Von Cloud laden</button>
-        <button class="mark-done-btn secondary" data-action="sync-push-now" ${configured ? "" : "disabled"}>⇧ In Cloud speichern</button>
-        ${c.enabled ? `<button class="del-btn" data-action="sync-disable">Sync ausschalten</button>` : ""}
+        <button class="mock-add-btn" data-action="sync-refresh">↻ Jetzt aktualisieren</button>
       </div>
       <div class="sync-help">
-        <strong>Einrichtung (einmalig):</strong> 1) In Supabase → <em>SQL Editor</em> die Datei <code>supabase-setup.sql</code> ausführen. 2) URL + anon key aus <em>Settings → API</em> hier eintragen. 3) Einen geheimen Sync-Code wählen (oder „Erzeugen“). 4) Auf jedem weiteren Gerät dieselben Werte + denselben Code eingeben und „Verbinden“. Bei Konflikt gewinnt die zuletzt gespeicherte Version.
+        Änderungen werden sofort in der Cloud gespeichert und beim Öffnen (und beim Zurückwechseln zur App) automatisch geladen — jedes Gerät zeigt denselben, aktuellen Stand. Bei gleichzeitigen Änderungen gewinnt die zuletzt gespeicherte Version.
       </div>
     </div>
   </section>`;
@@ -1202,20 +1201,7 @@ function onClick(e) {
     if (ctx && ctx.mode === "lib") { const { [ctx.id]: _drop, ...rest } = state.libProgress; setState({ libProgress: rest }); }
     return;
   }
-  if (action === "sync-gen-code") { const el = document.getElementById("sync-code"); if (el) el.value = randomCode(); return; }
-  if (action === "sync-save") {
-    const url = (document.getElementById("sync-url").value || "").trim();
-    const key = (document.getElementById("sync-key").value || "").trim();
-    const code = (document.getElementById("sync-code").value || "").trim();
-    if (!url || !key || !code) { setSyncStatus("Bitte URL, Key und Code ausfüllen."); render(); return; }
-    setSyncCfg({ url, key, code, enabled: true });
-    render();
-    doInitialSync().then(render);
-    return;
-  }
-  if (action === "sync-pull-now") { pullNow(); return; }
-  if (action === "sync-push-now") { doSyncPush().then(render); return; }
-  if (action === "sync-disable") { setSyncCfg({ enabled: false }); setSyncStatus(""); render(); return; }
+  if (action === "sync-refresh") { pullFresh(true); return; }
 
   if (action === "start-mock" || action === "mock-again") { startMock(); return; }
   if (action === "mock-prev") { mockNav(-1); return; }
@@ -1320,4 +1306,8 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !state.m
 persistLocalOnly(); // anchor calendar date / rolled-over state on first load (no push yet)
 render();
 if (state.mock && !state.mock.submitted) startMockTimer(); // resume a mock left running before reload
-if (syncReady()) doInitialSync().then(render); // pull newer cloud data / push local on load
+if (syncReady()) doInitialSync().then(render); // cloud is source of truth on load
+
+// Keep it always current: refresh from cloud when returning to the app.
+document.addEventListener("visibilitychange", () => { if (!document.hidden) pullFresh(false); });
+window.addEventListener("focus", () => pullFresh(false));
