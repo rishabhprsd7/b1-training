@@ -101,7 +101,7 @@ function loadState() {
   const base = {
     dayIndex: 0, streak: 0, bestStreak: 0, completedDays: [],
     sprintLength: Math.max(daysLeft(), 7),
-    done: {}, progress: {}, libProgress: {}, mockTests: [], lastCalendarDate: null
+    done: {}, progress: {}, libProgress: {}, mockTests: [], mock: null, mockRuns: [], lastCalendarDate: null
   };
   const merged = saved ? { ...base, ...saved } : base;
   return rollover(merged);
@@ -112,8 +112,8 @@ if (!state.libProgress) state.libProgress = {};
 
 function persist() {
   if (typeof localStorage === "undefined") return;
-  const { dayIndex, streak, bestStreak, completedDays, sprintLength, done, progress, libProgress, mockTests, lastCalendarDate } = state;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ dayIndex, streak, bestStreak, completedDays, sprintLength, done, progress, libProgress, mockTests, lastCalendarDate }));
+  const { dayIndex, streak, bestStreak, completedDays, sprintLength, done, progress, libProgress, mockTests, mock, mockRuns, lastCalendarDate } = state;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ dayIndex, streak, bestStreak, completedDays, sprintLength, done, progress, libProgress, mockTests, mock, mockRuns, lastCalendarDate }));
 }
 
 let persistTimer = null;
@@ -141,7 +141,15 @@ function baustLibSet(setIndex) {
   return Array.from({ length: 10 }, (_, i) => (start + i) % pool.length).filter(n => n < pool.length);
 }
 
+function mockPartCtx() {
+  const m = state.mock;
+  if (!m) return null;
+  const part = m.parts[m.i];
+  return { mode: "mock", kind: part.kind, index: part.index, partIndex: m.i, id: `mock:${m.i}` };
+}
+
 function currentCtx() {
+  if (state.mock) return mockPartCtx();
   if (state.openLib) {
     const { kind, index } = state.openLib;
     return { mode: "lib", kind, index, id: `lib:${kind}:${index}` };
@@ -154,9 +162,9 @@ function currentCtx() {
 }
 
 function ctxItem(ctx) {
-  if (ctx.kind === "vocab") return CONTENT.decks[ctx.mode === "lib" ? ctx.index : idxFor("vocab", state.dayIndex)];
+  if (ctx.kind === "vocab") return CONTENT.decks[ctx.mode === "day" ? idxFor("vocab", state.dayIndex) : ctx.index];
   if (ctx.kind === "bausteine") return null; // uses prog.idxs
-  const idx = ctx.mode === "lib" ? ctx.index : idxFor(ctx.kind, state.dayIndex);
+  const idx = ctx.mode === "day" ? idxFor(ctx.kind, state.dayIndex) : ctx.index;
   return CONTENT[ctx.kind][idx];
 }
 
@@ -172,13 +180,18 @@ function initProgressFor(kind, ref) {
 }
 
 function initForCtx(ctx) {
-  if (ctx.kind === "vocab") return initProgressFor("vocab", ctx.mode === "lib" ? ctx.index : idxFor("vocab", state.dayIndex));
-  if (ctx.kind === "bausteine") return initProgressFor("bausteine", ctx.mode === "lib" ? baustLibSet(ctx.index) : baustSetForDay(state.dayIndex));
-  if (ctx.kind === "grammatik") return initProgressFor("grammatik", ctx.mode === "lib" ? ctx.index : idxFor("grammatik", state.dayIndex));
+  const day = ctx.mode === "day";
+  if (ctx.kind === "vocab") return initProgressFor("vocab", day ? idxFor("vocab", state.dayIndex) : ctx.index);
+  if (ctx.kind === "bausteine") return initProgressFor("bausteine", day ? baustSetForDay(state.dayIndex) : baustLibSet(ctx.index));
+  if (ctx.kind === "grammatik") return initProgressFor("grammatik", day ? idxFor("grammatik", state.dayIndex) : ctx.index);
   return initProgressFor(ctx.kind, 0);
 }
 
 function ctxProgress(ctx) {
+  if (ctx.mode === "mock") {
+    if (!state.mock.prog[ctx.partIndex]) state.mock.prog[ctx.partIndex] = initForCtx(ctx);
+    return state.mock.prog[ctx.partIndex];
+  }
   if (ctx.mode === "lib") {
     if (!state.libProgress[ctx.id]) state.libProgress[ctx.id] = initForCtx(ctx);
     return state.libProgress[ctx.id];
@@ -192,7 +205,8 @@ function patchProgress(fn) {
   const ctx = currentCtx();
   if (!ctx) return;
   const next = fn(ctxProgress(ctx));
-  if (ctx.mode === "lib") state.libProgress = { ...state.libProgress, [ctx.id]: next };
+  if (ctx.mode === "mock") state.mock = { ...state.mock, prog: { ...state.mock.prog, [ctx.partIndex]: next } };
+  else if (ctx.mode === "lib") state.libProgress = { ...state.libProgress, [ctx.id]: next };
   else state.progress = { ...state.progress, [ctx.kind]: next };
   persist();
   render();
@@ -514,9 +528,32 @@ function renderMockLog() {
       <td><button class="del-btn" data-action="delete-mock" data-id="${m.id}">Löschen</button></td>
     </tr>`;
   }).join("");
+  const runRows = state.mockRuns.map(r => `<tr>
+      <td>${esc(r.date)}</td>
+      <td>${r.points} / 180 <span style="color:#9A9AA6">· ${fmtDur(r.durationMs)}</span></td>
+      <td>L ${r.scaled.lesen} · SB ${r.scaled.bausteine} · H ${r.scaled.hoeren}</td>
+      <td><span class="pill ${r.pass ? "pass" : "fail"}">${r.pct}%</span></td>
+    </tr>`).join("");
+  const bestPct = state.mockRuns.length ? Math.max(...state.mockRuns.map(r => r.pct)) : 0;
+
   return `
   <section id="mocktest" class="section container">
-    <div class="section-head"><div><h2 class="section-title">Mock-Test-Protokoll</h2><div class="section-sub">Selbst bewertete Punkte gegen die 60&thinsp;%-Grenze (135 schriftlich / 45 mündlich, keine Kompensation)</div></div></div>
+    <div class="section-head"><div><h2 class="section-title">Mock-Test</h2><div class="section-sub">Kompletter Übungstest (Leseverstehen + Sprachbausteine + Hörverstehen) — auf Zeit, ohne Zwischen-Feedback, dann automatisch bewertet. So oft du willst.</div></div></div>
+    <div class="helper-card mock-start-card">
+      <div class="mock-start-left">
+        <div class="mock-start-title">Neuen Mock-Test starten</div>
+        <div class="mock-start-sub">6 Teile · ca. 20–30 Min · Feedback erst am Ende. ${state.mockRuns.length ? `Versuche: ${state.mockRuns.length} · Bestwert: ${bestPct}%` : "Noch kein Versuch."}</div>
+      </div>
+      <button class="finish-btn" data-action="start-mock">▶ Mock-Test starten</button>
+    </div>
+    ${state.mockRuns.length ? `<div class="helper-card">
+      <div class="helper-title" style="font-size:15px;margin-bottom:10px">Deine Versuche</div>
+      <table class="mock-table">
+        <thead><tr><th>Datum</th><th>Punkte (obj.)</th><th>Sektionen</th><th>Ergebnis</th></tr></thead>
+        <tbody>${runRows}</tbody>
+      </table>
+    </div>` : ""}
+    <div class="section-head" style="margin-top:8px"><div><h3 class="helper-title" style="font-size:16px">Punkte-Protokoll (Schreiben &amp; Sprechen)</h3><div class="section-sub">Eigene Punkte inkl. Schreiben/Sprechen gegen 135 schriftlich / 45 mündlich (keine Kompensation)</div></div></div>
     <div class="helper-card">
       <div class="mock-form">
         <div class="mock-field"><label for="mock-lesen">Leseverstehen (/75)</label><input type="number" min="0" max="75" id="mock-lesen"></div>
@@ -575,7 +612,7 @@ function renderVocab(deck, p) {
     </div>`;
 }
 
-function renderBausteine(_item, p) {
+function renderBausteine(_item, p, reveal = true) {
   const pool = CONTENT.bausteine;
   const answered = Object.keys(p.answers).length;
   const correct = p.idxs.filter(qi => p.answers[qi] === pool[qi].answer).length;
@@ -584,24 +621,24 @@ function renderBausteine(_item, p) {
     const picked = p.answers[qi];
     const optsHtml = p.optionOrder[qi].map(o => {
       let cls = "opt-btn";
-      if (picked) { if (o === q.answer) cls += " correct"; else if (o === picked) cls += " incorrect"; }
-      return `<button class="${cls}" data-action="answer-bausteine" data-qi="${qi}" data-opt="${esc(o)}" ${picked ? "disabled" : ""}>${esc(o)}</button>`;
+      if (picked) { if (reveal) { if (o === q.answer) cls += " correct"; else if (o === picked) cls += " incorrect"; } else if (o === picked) cls += " selected"; }
+      return `<button class="${cls}" data-action="answer-bausteine" data-qi="${qi}" data-opt="${esc(o)}" ${reveal && picked ? "disabled" : ""}>${esc(o)}</button>`;
     }).join("");
     return `<div class="q-block">
       <div class="q-num">Frage ${n + 1} / ${p.idxs.length}</div>
       <div class="q-text">${esc(q.q).replace("___", "<u>___</u>")}</div>
       <div class="q-options">${optsHtml}</div>
-      ${picked ? `<div class="q-hint">${esc(q.hint)}</div>` : ""}
+      ${reveal && picked ? `<div class="q-hint">${esc(q.hint)}</div>` : ""}
     </div>`;
   }).join("");
   const src = pool[p.idxs[0]] && pool[p.idxs[0]].source;
   return `
-    ${srcTag(src)}<div class="ex-intro">Wählen Sie die richtige Lösung (a / b / c).</div>
-    <div class="ex-progress">${answered} / ${p.idxs.length} beantwortet · ${correct} richtig</div>
+    ${reveal ? srcTag(src) : ""}<div class="ex-intro">Wählen Sie die richtige Lösung (a / b / c).</div>
+    <div class="ex-progress">${answered} / ${p.idxs.length} beantwortet${reveal ? ` · ${correct} richtig` : ""}</div>
     ${rows}`;
 }
 
-function renderLesen(item, p) {
+function renderLesen(item, p, reveal = true) {
   if (item.type === "mc") {
     const answered = Object.keys(p.answers).length;
     const correct = item.questions.filter((q, i) => p.answers[i] === q.answer).length;
@@ -609,14 +646,14 @@ function renderLesen(item, p) {
       const picked = p.answers[i];
       const optsHtml = q.options.map(o => {
         let cls = "opt-btn";
-        if (picked) { if (o === q.answer) cls += " correct"; else if (o === picked) cls += " incorrect"; }
-        return `<button class="${cls}" data-action="answer-lesen-mc" data-qi="${i}" data-opt="${esc(o)}" ${picked ? "disabled" : ""}>${esc(o)}</button>`;
+        if (picked) { if (reveal) { if (o === q.answer) cls += " correct"; else if (o === picked) cls += " incorrect"; } else if (o === picked) cls += " selected"; }
+        return `<button class="${cls}" data-action="answer-lesen-mc" data-qi="${i}" data-opt="${esc(o)}" ${reveal && picked ? "disabled" : ""}>${esc(o)}</button>`;
       }).join("");
       return `<div class="q-block"><div class="q-num">Frage ${i + 1}</div><div class="q-text">${esc(q.q)}</div><div class="q-options">${optsHtml}</div></div>`;
     }).join("");
-    return `${srcTag(item.source)}<div class="ex-intro">${esc(item.intro)}</div>
+    return `${reveal ? srcTag(item.source) : ""}<div class="ex-intro">${esc(item.intro)}</div>
       <div class="passage">${esc(item.text)}</div>
-      <div class="ex-progress">${answered} / ${item.questions.length} beantwortet · ${correct} richtig</div>
+      <div class="ex-progress">${answered} / ${item.questions.length} beantwortet${reveal ? ` · ${correct} richtig` : ""}</div>
       ${qHtml}`;
   }
 
@@ -627,14 +664,14 @@ function renderLesen(item, p) {
       const picked = p.answers[t.n];
       const chips = item.headlines.map(h => {
         let cls = "chip-btn";
-        if (picked) { if (h.id === t.sol) cls += " correct"; else if (h.id === picked) cls += " incorrect"; }
-        return `<button class="${cls}" data-action="answer-lesen-match" data-n="${t.n}" data-choice="${h.id}" ${picked ? "disabled" : ""}>${h.id}</button>`;
+        if (picked) { if (reveal) { if (h.id === t.sol) cls += " correct"; else if (h.id === picked) cls += " incorrect"; } else if (h.id === picked) cls += " selected"; }
+        return `<button class="${cls}" data-action="answer-lesen-match" data-n="${t.n}" data-choice="${h.id}" ${reveal && picked ? "disabled" : ""}>${h.id}</button>`;
       }).join("");
       return `<div class="match-row"><div class="match-n">${t.n}</div><div class="match-text">${esc(t.body)}</div><div class="match-select">${chips}</div></div>`;
     }).join("");
     const legend = item.headlines.map(h => `<div class="ad-item"><span class="ad-id">${h.id}</span>${esc(h.text)}</div>`).join("");
-    return `${srcTag(item.source)}<div class="ex-intro">${esc(item.intro)}</div>
-      <div class="ex-progress">${answered} / ${item.texts.length} beantwortet · ${correct} richtig</div>
+    return `${reveal ? srcTag(item.source) : ""}<div class="ex-intro">${esc(item.intro)}</div>
+      <div class="ex-progress">${answered} / ${item.texts.length} beantwortet${reveal ? ` · ${correct} richtig` : ""}</div>
       ${rows}
       <div class="ad-list">${legend}</div>`;
   }
@@ -647,38 +684,40 @@ function renderLesen(item, p) {
     const choices = [...item.ads.map(a => a.id), "x"];
     const chips = choices.map(id => {
       let cls = "chip-btn";
-      if (picked) { if (id === s.sol) cls += " correct"; else if (id === picked) cls += " incorrect"; }
-      return `<button class="${cls}" data-action="answer-lesen-match" data-n="${s.n}" data-choice="${id}" ${picked ? "disabled" : ""}>${id}</button>`;
+      if (picked) { if (reveal) { if (id === s.sol) cls += " correct"; else if (id === picked) cls += " incorrect"; } else if (id === picked) cls += " selected"; }
+      return `<button class="${cls}" data-action="answer-lesen-match" data-n="${s.n}" data-choice="${id}" ${reveal && picked ? "disabled" : ""}>${id}</button>`;
     }).join("");
     return `<div class="match-row"><div class="match-n">${s.n}</div><div class="match-text">${esc(s.text)}</div><div class="match-select">${chips}</div></div>`;
   }).join("");
   const legend = item.ads.map(a => `<div class="ad-item"><span class="ad-id">${a.id}</span>${esc(a.text)}</div>`).join("");
-  return `${srcTag(item.source)}<div class="ex-intro">${esc(item.intro)}</div>
-    <div class="ex-progress">${answered} / ${item.situations.length} beantwortet · ${correct} richtig</div>
+  return `${reveal ? srcTag(item.source) : ""}<div class="ex-intro">${esc(item.intro)}</div>
+    <div class="ex-progress">${answered} / ${item.situations.length} beantwortet${reveal ? ` · ${correct} richtig` : ""}</div>
     ${rows}
     <div class="ad-list">${legend}</div>`;
 }
 
-function renderHoeren(item, p) {
+function renderHoeren(item, p, reveal = true) {
   const answered = Object.keys(p.answers).length;
   const correct = item.statements.filter((s, i) => p.answers[i] === s.answer).length;
   const rows = item.statements.map((s, i) => {
     const picked = p.answers[i];
     const btn = (val, label) => {
       let cls = "rf-btn";
-      if (picked !== undefined) { if (val === s.answer) cls += " correct"; else if (val === picked) cls += " incorrect"; }
-      return `<button class="${cls}" data-action="answer-hoeren" data-i="${i}" data-val="${val}" ${picked !== undefined ? "disabled" : ""}>${label}</button>`;
+      if (picked !== undefined) { if (reveal) { if (val === s.answer) cls += " correct"; else if (val === picked) cls += " incorrect"; } else if (val === picked) cls += " selected"; }
+      return `<button class="${cls}" data-action="answer-hoeren" data-i="${i}" data-val="${val}" ${reveal && picked !== undefined ? "disabled" : ""}>${label}</button>`;
     };
     return `<div class="statement-row"><div class="statement-text">${esc(s.text)}</div><div class="rf-btns">${btn(true, "Richtig")}${btn(false, "Falsch")}</div></div>`;
   }).join("");
-  return `
-    ${srcTag(item.source)}<div class="ex-intro"><strong>${esc(item.kind)}:</strong> „${esc(item.title)}“ — Tipp: Lesen Sie zuerst die Aussagen, wie in der echten Prüfung.</div>
-    <div class="ex-progress">${answered} / ${item.statements.length} beantwortet · ${correct} richtig</div>
-    ${rows}
+  const transcriptBlock = reveal ? `
     <div class="transcript-toggle">
       <button class="mark-done-btn secondary" data-action="toggle-transcript">${p.revealed ? "Transkript ausblenden" : "Transkript anzeigen"}</button>
     </div>
-    ${p.revealed ? `<div class="passage">${esc(item.transcript)}</div>` : ""}
+    ${p.revealed ? `<div class="passage">${esc(item.transcript)}</div>` : ""}` : "";
+  return `
+    ${reveal ? srcTag(item.source) : ""}<div class="ex-intro"><strong>${esc(item.kind)}:</strong> „${esc(item.title)}“ — Tipp: Lesen Sie zuerst die Aussagen, wie in der echten Prüfung.</div>
+    <div class="ex-progress">${answered} / ${item.statements.length} beantwortet${reveal ? ` · ${correct} richtig` : ""}</div>
+    ${rows}
+    ${transcriptBlock}
   `;
 }
 
@@ -719,22 +758,22 @@ function renderSprechen(item, p) {
   `;
 }
 
-function renderGrammatik(g, p) {
+function renderGrammatik(g, p, reveal = true) {
   const answered = Object.keys(p.answers).length;
   const correct = g.items.filter((it, i) => p.answers[i] === it.answer).length;
   const rows = g.items.map((it, i) => {
     const picked = p.answers[i];
     const optsHtml = p.optionOrder[i].map(o => {
       let cls = "opt-btn";
-      if (picked) { if (o === it.answer) cls += " correct"; else if (o === picked) cls += " incorrect"; }
-      return `<button class="${cls}" data-action="answer-grammatik" data-qi="${i}" data-opt="${esc(o)}" ${picked ? "disabled" : ""}>${esc(o)}</button>`;
+      if (picked) { if (reveal) { if (o === it.answer) cls += " correct"; else if (o === picked) cls += " incorrect"; } else if (o === picked) cls += " selected"; }
+      return `<button class="${cls}" data-action="answer-grammatik" data-qi="${i}" data-opt="${esc(o)}" ${reveal && picked ? "disabled" : ""}>${esc(o)}</button>`;
     }).join("");
-    return `<div class="q-block"><div class="q-text">${esc(it.q).replace("___", "<u>___</u>")}</div><div class="q-options">${optsHtml}</div>${picked ? `<div class="q-hint">${esc(it.hint)}</div>` : ""}</div>`;
+    return `<div class="q-block"><div class="q-text">${esc(it.q).replace("___", "<u>___</u>")}</div><div class="q-options">${optsHtml}</div>${reveal && picked ? `<div class="q-hint">${esc(it.hint)}</div>` : ""}</div>`;
   }).join("");
   return `
     <div style="font-size:15px;font-weight:800;margin-bottom:4px">${esc(g.topic)} <span style="color:#9A9AA6;font-weight:600;font-size:13px">· ${esc(g.en)}</span></div>
-    <div class="rule-box">${esc(g.rule)}</div>
-    <div class="ex-progress">${answered} / ${g.items.length} beantwortet · ${correct} richtig</div>
+    ${reveal ? `<div class="rule-box">${esc(g.rule)}</div>` : ""}
+    <div class="ex-progress">${answered} / ${g.items.length} beantwortet${reveal ? ` · ${correct} richtig` : ""}</div>
     ${rows}
   `;
 }
@@ -744,7 +783,8 @@ const ENGINES = { vocab: renderVocab, bausteine: renderBausteine, lesen: renderL
 // Resolve the item + progress for a ctx and run the matching engine.
 function renderEngineFor(ctx) {
   const prog = ctxProgress(ctx);
-  return ENGINES[ctx.kind](ctxItem(ctx), prog);
+  const reveal = ctx.mode !== "mock" || (state.mock && state.mock.submitted);
+  return ENGINES[ctx.kind](ctxItem(ctx), prog, reveal);
 }
 
 // ------------------------------------------------------------------ Übungen library
@@ -815,6 +855,132 @@ function renderUebungen() {
     <div class="section-head"><div><h2 class="section-title">Übungen</h2><div class="section-sub">Alle Aufgaben frei wählbar. „● echt“ = direkt aus einem telc-Modelltest. Ergebnisse werden gespeichert.</div></div></div>
     ${blocks}
   </section>`;
+}
+
+// ------------------------------------------------------------------ Mock-Test
+function scorePart(kind, index, p) {
+  const item = kind === "vocab" ? CONTENT.decks[index] : kind === "bausteine" ? null : CONTENT[kind][index];
+  let total = 0, correct = 0;
+  if (kind === "bausteine") { const idxs = p ? p.idxs : baustLibSet(index); total = idxs.length; if (p) correct = idxs.filter(qi => p.answers[qi] === CONTENT.bausteine[qi].answer).length; }
+  else if (kind === "lesen") {
+    if (item.type === "mc") { total = item.questions.length; if (p) correct = item.questions.filter((q, i) => p.answers[i] === q.answer).length; }
+    else if (item.type === "headline") { total = item.texts.length; if (p) correct = item.texts.filter(t => p.answers[t.n] === t.sol).length; }
+    else { total = item.situations.length; if (p) correct = item.situations.filter(s => p.answers[s.n] === s.sol).length; }
+  }
+  else if (kind === "hoeren") { total = item.statements.length; if (p) correct = item.statements.filter((s, i) => p.answers[i] === s.answer).length; }
+  else if (kind === "grammatik") { total = item.items.length; if (p) correct = item.items.filter((it, i) => p.answers[i] === it.answer).length; }
+  return { total, correct };
+}
+
+function buildMock() {
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const byType = t => CONTENT.lesen.map((it, i) => ({ it, i })).filter(x => x.it.type === t).map(x => x.i);
+  const parts = [];
+  [byType("headline"), byType("mc"), byType("ads")].forEach(pool => { if (pool.length) parts.push({ kind: "lesen", index: pick(pool) }); });
+  parts.push({ kind: "bausteine", index: Math.floor(Math.random() * Math.ceil(CONTENT.bausteine.length / 10)) });
+  shuffleArr(CONTENT.hoeren.map((_, i) => i)).slice(0, Math.min(2, CONTENT.hoeren.length)).forEach(i => parts.push({ kind: "hoeren", index: i }));
+  return { id: Date.now(), parts, i: 0, prog: {}, submitted: false, reviewing: false, startedAt: Date.now(), durationMs: 0 };
+}
+
+function scoreMock(m) {
+  const sec = { lesen: { c: 0, t: 0 }, bausteine: { c: 0, t: 0 }, hoeren: { c: 0, t: 0 } };
+  m.parts.forEach((part, pi) => { const s = scorePart(part.kind, part.index, m.prog[pi]); sec[part.kind].c += s.correct; sec[part.kind].t += s.total; });
+  const scaled = {
+    lesen: sec.lesen.t ? Math.round(sec.lesen.c / sec.lesen.t * 75) : 0,
+    bausteine: sec.bausteine.t ? Math.round(sec.bausteine.c / sec.bausteine.t * 30) : 0,
+    hoeren: sec.hoeren.t ? Math.round(sec.hoeren.c / sec.hoeren.t * 75) : 0
+  };
+  const c = sec.lesen.c + sec.bausteine.c + sec.hoeren.c;
+  const t = sec.lesen.t + sec.bausteine.t + sec.hoeren.t;
+  const pct = t ? Math.round(c / t * 100) : 0;
+  return { sec, scaled, c, t, pct, points: scaled.lesen + scaled.bausteine + scaled.hoeren, max: 180, pass: pct >= 60 };
+}
+
+function fmtDur(ms) { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+function mockPartLabel(part) {
+  if (part.kind === "bausteine") return "Sprachbausteine";
+  if (part.kind === "hoeren") return `Hörverstehen · ${CONTENT.hoeren[part.index].title}`;
+  const it = CONTENT.lesen[part.index];
+  return "Leseverstehen · " + ({ headline: "Teil 1", mc: "Teil 2", ads: "Teil 3" }[it.type]);
+}
+
+let mockTimerId = null;
+function startMockTimer() { stopMockTimer(); mockTimerId = setInterval(updateMockTimer, 1000); }
+function stopMockTimer() { if (mockTimerId) { clearInterval(mockTimerId); mockTimerId = null; } }
+function updateMockTimer() {
+  const el = document.getElementById("mock-timer");
+  if (!el || !state.mock || state.mock.submitted) { stopMockTimer(); return; }
+  el.textContent = fmtDur(Date.now() - state.mock.startedAt);
+}
+
+function startMock() { setState({ mock: buildMock(), openCat: null, openLib: null }); startMockTimer(); }
+function submitMock() {
+  stopMockTimer();
+  const m = { ...state.mock, submitted: true, reviewing: false, i: 0, durationMs: Date.now() - state.mock.startedAt };
+  const res = scoreMock(m);
+  const run = { id: m.id, date: todayKey(), pct: res.pct, points: res.points, max: res.max, pass: res.pass, scaled: res.scaled, sec: res.sec, durationMs: m.durationMs };
+  setState({ mock: m, mockRuns: [run, ...state.mockRuns].slice(0, 30) });
+}
+function mockNav(delta) { const m = state.mock; setState({ mock: { ...m, i: Math.max(0, Math.min(m.parts.length - 1, m.i + delta)) } }); }
+
+function renderMockRun() {
+  const m = state.mock;
+  if (!m) return "";
+  if (m.submitted && !m.reviewing) return renderMockResult(m);
+  const reviewing = m.submitted && m.reviewing;
+  const ctx = mockPartCtx();
+  return `
+  <div class="overlay">
+    <div class="modal mock-modal">
+      <div class="modal-head">
+        <div class="modal-head-left">
+          <button class="back-btn" data-action="${reviewing ? "mock-to-result" : "mock-abort"}" aria-label="Zurück">${reviewing ? "←" : "✕"}</button>
+          <div><div class="modal-title">${reviewing ? "Antworten ansehen" : "Mock-Test"}</div><div class="modal-task">Teil ${m.i + 1} von ${m.parts.length} · ${esc(mockPartLabel(m.parts[m.i]))}</div></div>
+        </div>
+        ${reviewing ? "" : `<div class="mock-timer-wrap">⏱ <span id="mock-timer">${fmtDur(Date.now() - m.startedAt)}</span></div>`}
+      </div>
+      <div class="modal-body">
+        <div class="mock-progressbar"><div class="mock-progressbar-fill" style="width:${Math.round((m.i + 1) / m.parts.length * 100)}%"></div></div>
+        ${renderEngineFor(ctx)}
+        <div class="mock-nav">
+          <button class="mark-done-btn secondary" data-action="mock-prev" ${m.i === 0 ? "disabled" : ""}>← Zurück</button>
+          ${m.i < m.parts.length - 1
+            ? `<button class="mark-done-btn" data-action="mock-next">Weiter →</button>`
+            : (reviewing
+              ? `<button class="mark-done-btn" data-action="mock-to-result">Zum Ergebnis →</button>`
+              : `<button class="mark-done-btn" data-action="mock-submit">Abgeben &amp; auswerten</button>`)}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderMockResult(m) {
+  const res = scoreMock(m);
+  const secRow = (label, key, max) => {
+    const c = res.sec[key].c, t = res.sec[key].t, pct = t ? Math.round(c / t * 100) : 0;
+    return `<div class="mock-res-row"><span class="mock-res-name">${label}</span><span class="mock-res-pts">${c}/${t} · ${res.scaled[key]}/${max} Pkt</span><span class="pill ${pct >= 60 ? "pass" : "fail"}">${pct}%</span></div>`;
+  };
+  return `
+  <div class="overlay">
+    <div class="modal mock-modal">
+      <div class="modal-head"><div class="modal-head-left"><button class="back-btn" data-action="mock-close" aria-label="Schließen">✕</button><div><div class="modal-title">Ergebnis</div><div class="modal-task">Mock-Test · Dauer ${fmtDur(m.durationMs)}</div></div></div></div>
+      <div class="modal-body">
+        <div class="mock-result-big ${res.pass ? "pass" : "fail"}"><span class="mrb-pct">${res.pct}%</span><span class="mrb-sub">${res.points} / 180 Punkte (objektiv)</span></div>
+        <div class="mock-result-verdict ${res.pass ? "pass" : "fail"}">${res.pass ? "✓ 60 %-Grenze erreicht — stark!" : "✗ Noch unter 60 % — dranbleiben!"}</div>
+        <div class="mock-res-table">
+          ${secRow("Leseverstehen", "lesen", 75)}
+          ${secRow("Sprachbausteine", "bausteine", 30)}
+          ${secRow("Hörverstehen", "hoeren", 75)}
+        </div>
+        <div class="mock-note">Schriftlicher Ausdruck (45) &amp; Mündlicher Ausdruck (75) werden von Menschen bewertet — trage sie unten im Punkte-Protokoll selbst ein.</div>
+        <div class="mock-nav">
+          <button class="mark-done-btn secondary" data-action="mock-review">Antworten ansehen</button>
+          <button class="mark-done-btn" data-action="mock-again">Neuer Mock-Test</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderModal() {
@@ -888,6 +1054,7 @@ function render() {
       <div class="footer-note">B1 Sprint · dein tägliches Trainingsprogramm. Fortschritt &amp; Streak werden lokal in diesem Browser gespeichert. Viel Erfolg am 15. Juli!</div>
     </div>
     ${renderModal()}
+    ${renderMockRun()}
     ${renderCelebrate()}
   `;
 }
@@ -899,7 +1066,11 @@ function readMockInput(id, max) {
 
 function onClick(e) {
   const overlay = e.target.closest(".overlay");
-  if (overlay && !e.target.closest(".modal")) { setState({ openCat: null, openLib: null }); return; }
+  if (overlay && !e.target.closest(".modal")) {
+    if (state.mock) return; // don't lose a running mock on an accidental outside click
+    setState({ openCat: null, openLib: null });
+    return;
+  }
 
   const flip = e.target.closest('[data-action="flip"]');
   if (flip) {
@@ -925,6 +1096,15 @@ function onClick(e) {
     if (ctx && ctx.mode === "lib") { const { [ctx.id]: _drop, ...rest } = state.libProgress; setState({ libProgress: rest }); }
     return;
   }
+  if (action === "start-mock" || action === "mock-again") { startMock(); return; }
+  if (action === "mock-prev") { mockNav(-1); return; }
+  if (action === "mock-next") { mockNav(1); return; }
+  if (action === "mock-submit") { submitMock(); return; }
+  if (action === "mock-abort") { stopMockTimer(); setState({ mock: null }); return; }
+  if (action === "mock-close") { stopMockTimer(); setState({ mock: null }); return; }
+  if (action === "mock-review") { setState({ mock: { ...state.mock, reviewing: true, i: 0 } }); return; }
+  if (action === "mock-to-result") { setState({ mock: { ...state.mock, reviewing: false, i: 0 } }); return; }
+
   if (action === "finish-day") { finishDay(); return; }
   if (action === "flash-known") { advanceVocab("known"); return; }
   if (action === "flash-review") { advanceVocab("review"); return; }
@@ -1013,7 +1193,8 @@ function onInput(e) {
 const root = document.getElementById("root");
 root.addEventListener("click", onClick);
 root.addEventListener("input", onInput);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && (state.openCat || state.openLib)) setState({ openCat: null, openLib: null }); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !state.mock && (state.openCat || state.openLib)) setState({ openCat: null, openLib: null }); });
 
 persist(); // anchor calendar date / rolled-over state on first load
 render();
+if (state.mock && !state.mock.submitted) startMockTimer(); // resume a mock left running before reload
