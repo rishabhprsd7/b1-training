@@ -1,6 +1,7 @@
 import { CONTENT } from "./content.js";
 import "./papers-content.js"; // appends real exam exercises to the CONTENT pools
 import { STUDY_PLAN } from "./study-plan.js";
+import { getSyncCfg, setSyncCfg, syncConfigured, syncReady, syncPull, syncPush, randomCode } from "./sync.js";
 
 const STORAGE_KEY = "b1sprint-state-v1";
 const EXAM_DATE = new Date("2026-07-15T00:00:00");
@@ -95,34 +96,102 @@ function rollover(state) {
   };
 }
 
-function loadState() {
-  let saved = null;
-  try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { /* ignore corrupt storage */ }
+function hydrate(saved) {
   const base = {
     dayIndex: 0, streak: 0, bestStreak: 0, completedDays: [],
     sprintLength: Math.max(daysLeft(), 7),
-    done: {}, progress: {}, libProgress: {}, mockTests: [], mock: null, mockRuns: [], lastCalendarDate: null
+    done: {}, progress: {}, libProgress: {}, mockTests: [], mock: null, mockRuns: [],
+    lastCalendarDate: null, updatedAt: 0
   };
   const merged = saved ? { ...base, ...saved } : base;
   return rollover(merged);
+}
+function loadState() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { /* ignore corrupt storage */ }
+  return hydrate(saved);
 }
 
 let state = { ...loadState(), openCat: null, openLib: null, celebrate: false };
 if (!state.libProgress) state.libProgress = {};
 
+const PERSIST_KEYS = ["dayIndex", "streak", "bestStreak", "completedDays", "sprintLength", "done", "progress", "libProgress", "mockTests", "mock", "mockRuns", "lastCalendarDate", "updatedAt"];
+function stateBlob() {
+  const o = {};
+  for (const k of PERSIST_KEYS) o[k] = state[k];
+  return o;
+}
 function persist() {
   if (typeof localStorage === "undefined") return;
-  const { dayIndex, streak, bestStreak, completedDays, sprintLength, done, progress, libProgress, mockTests, mock, mockRuns, lastCalendarDate } = state;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ dayIndex, streak, bestStreak, completedDays, sprintLength, done, progress, libProgress, mockTests, mock, mockRuns, lastCalendarDate }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stateBlob()));
+  scheduleSyncPush();
 }
+// Mark local data as changed "now" so last-write-wins sync compares correctly.
+function touch() { state.updatedAt = Date.now(); }
 
 let persistTimer = null;
 function schedulePersist() { clearTimeout(persistTimer); persistTimer = setTimeout(persist, 400); }
 
 function setState(patch) {
   state = { ...state, ...patch };
+  touch();
   persist();
   render();
+}
+
+// ---------------------------------------------------------------- cloud sync
+let syncStatus = "";
+let syncBusy = false;
+let syncPushTimer = null;
+function fmtClock(ms) { return new Date(ms).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }); }
+function setSyncStatus(s) {
+  syncStatus = s;
+  const el = document.getElementById("sync-status");
+  if (el) el.textContent = s;
+}
+function persistLocalOnly() { if (typeof localStorage !== "undefined") localStorage.setItem(STORAGE_KEY, JSON.stringify(stateBlob())); }
+
+function scheduleSyncPush() {
+  if (!syncReady()) return;
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(doSyncPush, 1500);
+}
+async function doSyncPush() {
+  if (!syncReady() || syncBusy) return;
+  syncBusy = true;
+  setSyncStatus("Speichere …");
+  try {
+    await syncPush(stateBlob(), state.updatedAt || 0);
+    setSyncCfg({ lastSync: Date.now() });
+    setSyncStatus("gespeichert " + fmtClock(Date.now()));
+  } catch (e) { setSyncStatus("Fehler: " + e.message); }
+  finally { syncBusy = false; }
+}
+function applyRemote(data) {
+  state = { ...hydrate(data), openCat: null, openLib: null, celebrate: false };
+  if (!state.libProgress) state.libProgress = {};
+  persistLocalOnly();
+  render();
+}
+async function doInitialSync() {
+  if (!syncReady()) return;
+  setSyncStatus("Synchronisiere …");
+  try {
+    const remote = await syncPull();
+    if (remote && remote.updated > (state.updatedAt || 0)) { applyRemote(remote.data); setSyncStatus("geladen " + fmtClock(Date.now())); }
+    else { await syncPush(stateBlob(), state.updatedAt || 0); setSyncStatus("gespeichert " + fmtClock(Date.now())); }
+    setSyncCfg({ lastSync: Date.now() });
+  } catch (e) { setSyncStatus("Fehler: " + e.message); }
+}
+async function pullNow() {
+  if (!syncConfigured()) return;
+  setSyncStatus("Lade …"); render();
+  try {
+    const remote = await syncPull();
+    if (remote) { applyRemote(remote.data); setSyncStatus("geladen " + fmtClock(Date.now())); }
+    else setSyncStatus("nichts in der Cloud");
+    setSyncCfg({ lastSync: Date.now() });
+  } catch (e) { setSyncStatus("Fehler: " + e.message); render(); }
 }
 
 // ---- exercise context (works for both the daily plan and the free library) ----
@@ -308,6 +377,7 @@ function renderSubNav() {
     <a href="#schreibhilfe" class="nav-btn">Schreibhilfe</a>
     <a href="#sprechhilfe" class="nav-btn">Sprechhilfe</a>
     <a href="#mocktest" class="nav-btn">Mock-Test</a>
+    <a href="#sync" class="nav-btn">Sync</a>
   </div>`;
 }
 
@@ -857,6 +927,40 @@ function renderUebungen() {
   </section>`;
 }
 
+// ------------------------------------------------------------------ Sync
+function renderSync() {
+  const c = getSyncCfg();
+  const configured = syncConfigured();
+  const statusText = syncStatus || (c.lastSync ? "zuletzt " + fmtClock(c.lastSync) : "");
+  return `
+  <section id="sync" class="section container">
+    <div class="section-head"><div><h2 class="section-title">Sync</h2><div class="section-sub">Fortschritt geräteübergreifend synchronisieren (Supabase). Gleicher Sync-Code auf allen Geräten = gleiche Daten.</div></div></div>
+    <div class="helper-card">
+      <div class="sync-status-row">
+        <span class="sync-dot ${c.enabled ? "on" : ""}"></span>
+        <span class="sync-state-label">${c.enabled ? "Sync aktiv" : "Sync aus"}</span>
+        <span id="sync-status" class="sync-status">${esc(statusText)}</span>
+      </div>
+      <div class="sync-form">
+        <div class="mock-field"><label for="sync-url">Supabase URL</label><input id="sync-url" value="${esc(c.url)}" placeholder="https://xxxx.supabase.co"></div>
+        <div class="mock-field"><label for="sync-key">Anon public key</label><input id="sync-key" value="${esc(c.key)}" placeholder="eyJhbGciOi… (Settings → API)"></div>
+        <div class="mock-field"><label for="sync-code">Sync-Code (geheim · auf allen Geräten identisch)</label>
+          <div style="display:flex;gap:8px"><input id="sync-code" value="${esc(c.code)}" placeholder="dein-geheimer-code"><button class="mark-done-btn secondary" data-action="sync-gen-code" style="flex-shrink:0">Erzeugen</button></div>
+        </div>
+      </div>
+      <div class="sync-actions">
+        <button class="mock-add-btn" data-action="sync-save">Verbinden &amp; synchronisieren</button>
+        <button class="mark-done-btn secondary" data-action="sync-pull-now" ${configured ? "" : "disabled"}>⇩ Von Cloud laden</button>
+        <button class="mark-done-btn secondary" data-action="sync-push-now" ${configured ? "" : "disabled"}>⇧ In Cloud speichern</button>
+        ${c.enabled ? `<button class="del-btn" data-action="sync-disable">Sync ausschalten</button>` : ""}
+      </div>
+      <div class="sync-help">
+        <strong>Einrichtung (einmalig):</strong> 1) In Supabase → <em>SQL Editor</em> die Datei <code>supabase-setup.sql</code> ausführen. 2) URL + anon key aus <em>Settings → API</em> hier eintragen. 3) Einen geheimen Sync-Code wählen (oder „Erzeugen“). 4) Auf jedem weiteren Gerät dieselben Werte + denselben Code eingeben und „Verbinden“. Bei Konflikt gewinnt die zuletzt gespeicherte Version.
+      </div>
+    </div>
+  </section>`;
+}
+
 // ------------------------------------------------------------------ Mock-Test
 function scorePart(kind, index, p) {
   const item = kind === "vocab" ? CONTENT.decks[index] : kind === "bausteine" ? null : CONTENT[kind][index];
@@ -1051,6 +1155,7 @@ function render() {
       ${renderSchreibhilfe()}
       ${renderSprechhilfe()}
       ${renderMockLog()}
+      ${renderSync()}
       <div class="footer-note">B1 Sprint · dein tägliches Trainingsprogramm. Fortschritt &amp; Streak werden lokal in diesem Browser gespeichert. Viel Erfolg am 15. Juli!</div>
     </div>
     ${renderModal()}
@@ -1078,6 +1183,7 @@ function onClick(e) {
     if (!ctx) return;
     const p = ctxProgress(ctx);
     p.flipped = !p.flipped;
+    touch();
     schedulePersist();
     flip.classList.toggle("flipped", p.flipped);
     return;
@@ -1096,6 +1202,21 @@ function onClick(e) {
     if (ctx && ctx.mode === "lib") { const { [ctx.id]: _drop, ...rest } = state.libProgress; setState({ libProgress: rest }); }
     return;
   }
+  if (action === "sync-gen-code") { const el = document.getElementById("sync-code"); if (el) el.value = randomCode(); return; }
+  if (action === "sync-save") {
+    const url = (document.getElementById("sync-url").value || "").trim();
+    const key = (document.getElementById("sync-key").value || "").trim();
+    const code = (document.getElementById("sync-code").value || "").trim();
+    if (!url || !key || !code) { setSyncStatus("Bitte URL, Key und Code ausfüllen."); render(); return; }
+    setSyncCfg({ url, key, code, enabled: true });
+    render();
+    doInitialSync().then(render);
+    return;
+  }
+  if (action === "sync-pull-now") { pullNow(); return; }
+  if (action === "sync-push-now") { doSyncPush().then(render); return; }
+  if (action === "sync-disable") { setSyncCfg({ enabled: false }); setSyncStatus(""); render(); return; }
+
   if (action === "start-mock" || action === "mock-again") { startMock(); return; }
   if (action === "mock-prev") { mockNav(-1); return; }
   if (action === "mock-next") { mockNav(1); return; }
@@ -1186,6 +1307,7 @@ function onInput(e) {
     if (!ctx || ctx.kind !== "schreiben") return;
     const p = ctxProgress(ctx);
     p.draft = e.target.value;
+    touch();
     schedulePersist();
   }
 }
@@ -1195,6 +1317,7 @@ root.addEventListener("click", onClick);
 root.addEventListener("input", onInput);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !state.mock && (state.openCat || state.openLib)) setState({ openCat: null, openLib: null }); });
 
-persist(); // anchor calendar date / rolled-over state on first load
+persistLocalOnly(); // anchor calendar date / rolled-over state on first load (no push yet)
 render();
 if (state.mock && !state.mock.submitted) startMockTimer(); // resume a mock left running before reload
+if (syncReady()) doInitialSync().then(render); // pull newer cloud data / push local on load

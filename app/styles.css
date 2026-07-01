@@ -206,6 +206,18 @@ h1,h2,h3,p{margin:0}
 .del-btn{color:#9A9AA6;font-size:12px;font-weight:700}
 .del-btn:hover{color:#C4432E}
 
+/* ---------------- sync ---------------- */
+.sync-status-row{display:flex;align-items:center;gap:9px;margin-bottom:14px;font-size:14px;font-weight:700}
+.sync-dot{width:10px;height:10px;border-radius:50%;background:#C9C9CE;flex-shrink:0}
+.sync-dot.on{background:#0E8C6D;box-shadow:0 0 0 3px rgba(14,140,109,.18)}
+.sync-status{font-size:12.5px;font-weight:600;color:#9A9AA6;margin-left:auto;font-variant-numeric:tabular-nums}
+.sync-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.sync-form .mock-field:last-child{grid-column:1 / -1}
+.sync-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sync-help{font-size:12.5px;color:#6B6B78;line-height:1.6;margin-top:16px;background:#F7F7F8;padding:12px 14px;border-radius:11px}
+.sync-help code{background:#ECECEE;padding:1px 5px;border-radius:5px;font-size:12px}
+@media (max-width:600px){ .sync-form{grid-template-columns:1fr} }
+
 /* ---------------- mock test ---------------- */
 .mock-start-card{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .mock-start-title{font-size:17px;font-weight:800;letter-spacing:-.01em}
