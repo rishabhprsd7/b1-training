@@ -113,7 +113,7 @@ function loadState() {
   return hydrate(saved);
 }
 
-let state = { ...loadState(), openCat: null, openLib: null, celebrate: false };
+let state = { ...loadState(), openCat: null, openLib: null, celebrate: false, tab: "heute" };
 if (!state.libProgress) state.libProgress = {};
 
 const PERSIST_KEYS = ["dayIndex", "streak", "bestStreak", "completedDays", "sprintLength", "done", "progress", "libProgress", "mockTests", "mock", "mockRuns", "lastCalendarDate", "updatedAt"];
@@ -227,8 +227,10 @@ function mockPartCtx() {
   return { mode: "mock", kind: part.kind, index: part.index, partIndex: m.i, id: `mock:${m.i}` };
 }
 
+function mockActive() { return !!(state.mock && !state.mock.paused); }
+
 function currentCtx() {
-  if (state.mock) return mockPartCtx();
+  if (mockActive()) return mockPartCtx();
   if (state.openLib) {
     const { kind, index } = state.openLib;
     return { mode: "lib", kind, index, id: `lib:${kind}:${index}` };
@@ -342,7 +344,33 @@ function advanceVocab(result) {
 
 // ------------------------------------------------------------------ render: shell
 
+// ------------------------------------------------------------------ tabs
+const TABS = [
+  { id: "heute", label: "Heute" },
+  { id: "uebungen", label: "Übungen" },
+  { id: "mock", label: "Mock-Test" },
+  { id: "vokabeln", label: "Vokabeln" },
+  { id: "sprechen", label: "Sprechen" },
+  { id: "schreiben", label: "Schreiben" },
+  { id: "plan", label: "Plan" },
+  { id: "sync", label: "Sync" }
+];
+const TAB_ALIASES = { mocktest: "mock", schreibhilfe: "schreiben", sprechhilfe: "sprechen" };
+function initialTab() {
+  const h = (location.hash || "").replace("#", "");
+  const t = TAB_ALIASES[h] || h;
+  return TABS.some(x => x.id === t) ? t : "heute";
+}
+function switchTab(t) {
+  if (!TABS.some(x => x.id === t)) return;
+  state.tab = t;
+  pageToTop = true;
+  render();
+  history.replaceState(null, "", "#" + t);
+}
+
 function renderHeader() {
+  const tabs = TABS.map(t => `<button class="nav-btn ${state.tab === t.id ? "active" : ""}" data-action="tab" data-tab="${t.id}">${esc(t.label)}</button>`).join("");
   return `
   <div class="header">
     <div class="header-inner">
@@ -352,6 +380,7 @@ function renderHeader() {
         <div class="header-days">noch ${daysLeft()} Tage</div>
       </div>
     </div>
+    <div class="tabbar"><div class="tabbar-inner">${tabs}</div></div>
   </div>`;
 }
 
@@ -378,19 +407,6 @@ function renderHero() {
   </section>`;
 }
 
-function renderSubNav() {
-  return `
-  <div class="container sub-nav" style="padding-top:14px">
-    <a href="#heute" class="nav-btn">Heute</a>
-    <a href="#uebungen" class="nav-btn">Übungen</a>
-    <a href="#vokabeln" class="nav-btn">Vokabeln</a>
-    <a href="#plan" class="nav-btn">15-Tage-Plan</a>
-    <a href="#schreibhilfe" class="nav-btn">Schreibhilfe</a>
-    <a href="#sprechhilfe" class="nav-btn">Sprechhilfe</a>
-    <a href="#mocktest" class="nav-btn">Mock-Test</a>
-    <a href="#sync" class="nav-btn">Sync</a>
-  </div>`;
-}
 
 function renderHeute() {
   const di = state.dayIndex;
@@ -454,7 +470,7 @@ function renderHeute() {
       </div>
       <div class="focus-title">${esc(pd.focus)}</div>
       <div class="focus-goal">${esc(pd.goal)}</div>
-      <div class="focus-chunk"><span class="focus-chunk-label">Satz des Tages</span> <strong>${esc(satz.k)}</strong> — ${satz.ex} <a href="#sprechhilfe" class="focus-chunk-link">Lernmethode →</a></div>
+      <div class="focus-chunk"><span class="focus-chunk-label">Satz des Tages</span> <strong>${esc(satz.k)}</strong> — ${satz.ex} <button class="focus-chunk-link" data-action="tab" data-tab="sprechen">Lernmethode →</button></div>
       <div class="focus-tip"><span class="focus-tip-label">Tipp</span> ${esc(pd.tip)}</div>
     </div>
 
@@ -737,13 +753,24 @@ function renderMockLog() {
   return `
   <section id="mocktest" class="section container">
     <div class="section-head"><div><h2 class="section-title">Mock-Test</h2><div class="section-sub">Kompletter Übungstest (Leseverstehen + Sprachbausteine + Hörverstehen) — auf Zeit, ohne Zwischen-Feedback, dann automatisch bewertet. So oft du willst.</div></div></div>
+    ${state.mock && !state.mock.submitted ? `
+    <div class="helper-card mock-start-card" style="border-color:#BEE3D4;background:#F4FBF8">
+      <div class="mock-start-left">
+        <div class="mock-start-title">⏸ Pausierter Mock-Test</div>
+        <div class="mock-start-sub">Teil ${state.mock.i + 1} von ${state.mock.parts.length} · bisher ${fmtDur(mockElapsed(state.mock))} — dein Stand ist gespeichert.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="finish-btn" data-action="mock-resume">▶ Fortsetzen</button>
+        <button class="del-btn" data-action="mock-discard">Verwerfen</button>
+      </div>
+    </div>` : `
     <div class="helper-card mock-start-card">
       <div class="mock-start-left">
         <div class="mock-start-title">Neuen Mock-Test starten</div>
-        <div class="mock-start-sub">6 Teile · ca. 20–30 Min · Feedback erst am Ende. ${state.mockRuns.length ? `Versuche: ${state.mockRuns.length} · Bestwert: ${bestPct}%` : "Noch kein Versuch."}</div>
+        <div class="mock-start-sub">6 Teile · ca. 20–30 Min · Feedback erst am Ende. Pause jederzeit möglich (⏸ oben links). ${state.mockRuns.length ? `Versuche: ${state.mockRuns.length} · Bestwert: ${bestPct}%` : "Noch kein Versuch."}</div>
       </div>
       <button class="finish-btn" data-action="start-mock">▶ Mock-Test starten</button>
-    </div>
+    </div>`}
     ${state.mockRuns.length ? `<div class="helper-card">
       <div class="helper-title" style="font-size:15px;margin-bottom:10px">Deine Versuche</div>
       <table class="mock-table">
@@ -1131,17 +1158,28 @@ function mockPartLabel(part) {
 let mockTimerId = null;
 function startMockTimer() { stopMockTimer(); mockTimerId = setInterval(updateMockTimer, 1000); }
 function stopMockTimer() { if (mockTimerId) { clearInterval(mockTimerId); mockTimerId = null; } }
+// Elapsed time = previously accumulated (across pauses) + current running span.
+function mockElapsed(m) { return (m.durationMs || 0) + (m.paused ? 0 : Date.now() - m.startedAt); }
 function updateMockTimer() {
   const el = document.getElementById("mock-timer");
-  if (!el || !state.mock || state.mock.submitted) { stopMockTimer(); return; }
-  el.textContent = fmtDur(Date.now() - state.mock.startedAt);
+  if (!el || !state.mock || state.mock.submitted || state.mock.paused) { stopMockTimer(); return; }
+  el.textContent = fmtDur(mockElapsed(state.mock));
 }
 
 function startMock() { setState({ mock: buildMock(), openCat: null, openLib: null }); startMockTimer(); }
+function pauseMock() {
+  stopMockTimer();
+  const m = state.mock;
+  setState({ mock: { ...m, paused: true, durationMs: mockElapsed(m) }, tab: "mock" });
+}
+function resumeMock() {
+  setState({ mock: { ...state.mock, paused: false, startedAt: Date.now() } });
+  startMockTimer();
+}
 function submitMock() {
   stopMockTimer();
   overlayToTop = true;
-  const m = { ...state.mock, submitted: true, reviewing: false, i: 0, durationMs: Date.now() - state.mock.startedAt };
+  const m = { ...state.mock, submitted: true, reviewing: false, i: 0, paused: false, durationMs: mockElapsed(state.mock) };
   const res = scoreMock(m);
   const run = { id: m.id, date: todayKey(), pct: res.pct, points: res.points, max: res.max, pass: res.pass, scaled: res.scaled, sec: res.sec, durationMs: m.durationMs };
   setState({ mock: m, mockRuns: [run, ...state.mockRuns].slice(0, 30) });
@@ -1150,7 +1188,7 @@ function mockNav(delta) { const m = state.mock; overlayToTop = true; setState({ 
 
 function renderMockRun() {
   const m = state.mock;
-  if (!m) return "";
+  if (!m || m.paused) return ""; // paused mock lives on the Mock-Test tab
   if (m.submitted && !m.reviewing) return renderMockResult(m);
   const reviewing = m.submitted && m.reviewing;
   const ctx = mockPartCtx();
@@ -1159,10 +1197,10 @@ function renderMockRun() {
     <div class="modal mock-modal">
       <div class="modal-head">
         <div class="modal-head-left">
-          <button class="back-btn" data-action="${reviewing ? "mock-to-result" : "mock-abort"}" aria-label="Zurück">${reviewing ? "←" : "✕"}</button>
+          <button class="back-btn" data-action="${reviewing ? "mock-to-result" : "mock-pause"}" aria-label="${reviewing ? "Zurück" : "Pause"}" title="${reviewing ? "Zurück" : "Pause — Test wird gespeichert"}">${reviewing ? "←" : "⏸"}</button>
           <div><div class="modal-title">${reviewing ? "Antworten ansehen" : "Mock-Test"}</div><div class="modal-task">Teil ${m.i + 1} von ${m.parts.length} · ${esc(mockPartLabel(m.parts[m.i]))}</div></div>
         </div>
-        ${reviewing ? "" : `<div class="mock-timer-wrap">⏱ <span id="mock-timer">${fmtDur(Date.now() - m.startedAt)}</span></div>`}
+        ${reviewing ? "" : `<div class="mock-timer-wrap">⏱ <span id="mock-timer">${fmtDur(mockElapsed(m))}</span></div>`}
       </div>
       <div class="modal-body">
         <div class="mock-progressbar"><div class="mock-progressbar-fill" style="width:${Math.round((m.i + 1) / m.parts.length * 100)}%"></div></div>
@@ -1209,7 +1247,7 @@ function renderMockResult(m) {
 }
 
 function renderModal() {
-  if (state.mock) return ""; // the mock has its own overlay (renderMockRun)
+  if (mockActive()) return ""; // the mock has its own overlay (renderMockRun)
   const ctx = currentCtx();
   if (!ctx) return "";
   if (ctx.mode === "lib") return renderLibModal(ctx);
@@ -1264,6 +1302,18 @@ function renderLibModal(ctx) {
 
 // ------------------------------------------------------------------ root render + events
 
+// One renderer per tab — only the active tab's content is on the page.
+const TAB_VIEWS = {
+  heute: () => renderHero() + renderHeute(),
+  uebungen: () => renderUebungen(),
+  mock: () => renderMockLog(),
+  vokabeln: () => renderVokabeln(),
+  sprechen: () => renderSprechhilfe(),
+  schreiben: () => renderSchreibhilfe(),
+  plan: () => renderPlan(),
+  sync: () => renderSync()
+};
+
 function render() {
   const root = document.getElementById("root");
   // Full re-render resets scroll to top; remember page + modal scroll and restore
@@ -1271,26 +1321,19 @@ function render() {
   const winY = window.scrollY;
   const oldOverlay = document.querySelector(".overlay");
   const overlayY = oldOverlay ? oldOverlay.scrollTop : 0;
+  const view = TAB_VIEWS[state.tab] || TAB_VIEWS.heute;
   root.innerHTML = `
     <div class="wrap">
       ${renderHeader()}
-      ${renderHero()}
-      ${renderSubNav()}
-      ${renderHeute()}
-      ${renderUebungen()}
-      ${renderVokabeln()}
-      ${renderPlan()}
-      ${renderSchreibhilfe()}
-      ${renderSprechhilfe()}
-      ${renderMockLog()}
-      ${renderSync()}
+      ${view()}
       <div class="footer-note">B1 Sprint · dein tägliches Trainingsprogramm. Fortschritt &amp; Streak werden automatisch auf allen Geräten synchronisiert. Viel Erfolg am 15. Juli!</div>
     </div>
     ${renderModal()}
     ${renderMockRun()}
     ${renderCelebrate()}
   `;
-  window.scrollTo(0, winY);
+  window.scrollTo(0, pageToTop ? 0 : winY);
+  pageToTop = false;
   const newOverlay = document.querySelector(".overlay");
   if (newOverlay) {
     if (overlayToTop) newOverlay.scrollTop = 0;
@@ -1302,6 +1345,8 @@ function render() {
 // Set by navigation actions (next mock part, result screen) where the new modal
 // content should start at the top instead of inheriting the old scroll.
 let overlayToTop = false;
+// Set on tab switches: the new tab starts at the top of the page.
+let pageToTop = false;
 
 function readMockInput(id, max) {
   const v = parseInt(document.getElementById(id).value, 10);
@@ -1311,7 +1356,7 @@ function readMockInput(id, max) {
 function onClick(e) {
   const overlay = e.target.closest(".overlay");
   if (overlay && !e.target.closest(".modal")) {
-    if (state.mock) return; // don't lose a running mock on an accidental outside click
+    if (mockActive()) return; // don't lose a running mock on an accidental outside click
     setState({ openCat: null, openLib: null });
     return;
   }
@@ -1341,13 +1386,16 @@ function onClick(e) {
     if (ctx && ctx.mode === "lib") { const { [ctx.id]: _drop, ...rest } = state.libProgress; setState({ libProgress: rest }); }
     return;
   }
+  if (action === "tab") { switchTab(btn.dataset.tab); return; }
   if (action === "sync-refresh") { pullFresh(true); return; }
 
   if (action === "start-mock" || action === "mock-again") { startMock(); return; }
   if (action === "mock-prev") { mockNav(-1); return; }
   if (action === "mock-next") { mockNav(1); return; }
   if (action === "mock-submit") { submitMock(); return; }
-  if (action === "mock-abort") { stopMockTimer(); setState({ mock: null }); return; }
+  if (action === "mock-pause") { pauseMock(); return; }
+  if (action === "mock-resume") { resumeMock(); return; }
+  if (action === "mock-discard") { stopMockTimer(); setState({ mock: null }); return; }
   if (action === "mock-close") { stopMockTimer(); setState({ mock: null }); return; }
   if (action === "mock-review") { overlayToTop = true; setState({ mock: { ...state.mock, reviewing: true, i: 0 } }); return; }
   if (action === "mock-to-result") { overlayToTop = true; setState({ mock: { ...state.mock, reviewing: false, i: 0 } }); return; }
@@ -1400,11 +1448,8 @@ function onClick(e) {
     return;
   }
   if (action === "jump-schreibhilfe" || action === "jump-sprechhilfe") {
-    const targetId = action === "jump-schreibhilfe" ? "schreibhilfe" : "sprechhilfe";
-    state = { ...state, openCat: null };
-    persist();
-    render();
-    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    state = { ...state, openCat: null, openLib: null };
+    switchTab(action === "jump-schreibhilfe" ? "schreiben" : "sprechen");
     return;
   }
   if (action === "add-mock") {
@@ -1441,13 +1486,20 @@ function onInput(e) {
 const root = document.getElementById("root");
 root.addEventListener("click", onClick);
 root.addEventListener("input", onInput);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !state.mock && (state.openCat || state.openLib)) setState({ openCat: null, openLib: null }); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !mockActive() && (state.openCat || state.openLib)) setState({ openCat: null, openLib: null }); });
 
 persistLocalOnly(); // anchor calendar date / rolled-over state on first load (no push yet)
+state.tab = initialTab(); // honor a #tab deep link
 render();
-if (state.mock && !state.mock.submitted) startMockTimer(); // resume a mock left running before reload
+if (state.mock && !state.mock.submitted && !state.mock.paused) startMockTimer(); // resume a mock left running before reload
 if (syncReady()) doInitialSync().then(render); // cloud is source of truth on load
 
 // Keep it always current: refresh from cloud when returning to the app.
 document.addEventListener("visibilitychange", () => { if (!document.hidden) pullFresh(false); });
 window.addEventListener("focus", () => pullFresh(false));
+
+// Support #tab deep links also when only the hash changes (no page reload).
+window.addEventListener("hashchange", () => {
+  const t = initialTab();
+  if (t !== state.tab) { state.tab = t; pageToTop = true; render(); }
+});
