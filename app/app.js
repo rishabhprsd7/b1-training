@@ -1,6 +1,6 @@
 import { CONTENT } from "./content.js";
 import "./papers-content.js"; // appends real exam exercises to the CONTENT pools
-import { STUDY_PLAN, PAPERS } from "./study-plan.js";
+import { STUDY_PLAN } from "./study-plan.js";
 
 const STORAGE_KEY = "b1sprint-state-v1";
 const EXAM_DATE = new Date("2026-07-15T00:00:00");
@@ -101,18 +101,19 @@ function loadState() {
   const base = {
     dayIndex: 0, streak: 0, bestStreak: 0, completedDays: [],
     sprintLength: Math.max(daysLeft(), 7),
-    done: {}, progress: {}, mockTests: [], lastCalendarDate: null
+    done: {}, progress: {}, libProgress: {}, mockTests: [], lastCalendarDate: null
   };
   const merged = saved ? { ...base, ...saved } : base;
   return rollover(merged);
 }
 
-let state = { ...loadState(), openCat: null, celebrate: false };
+let state = { ...loadState(), openCat: null, openLib: null, celebrate: false };
+if (!state.libProgress) state.libProgress = {};
 
 function persist() {
   if (typeof localStorage === "undefined") return;
-  const { dayIndex, streak, bestStreak, completedDays, sprintLength, done, progress, mockTests, lastCalendarDate } = state;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ dayIndex, streak, bestStreak, completedDays, sprintLength, done, progress, mockTests, lastCalendarDate }));
+  const { dayIndex, streak, bestStreak, completedDays, sprintLength, done, progress, libProgress, mockTests, lastCalendarDate } = state;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ dayIndex, streak, bestStreak, completedDays, sprintLength, done, progress, libProgress, mockTests, lastCalendarDate }));
 }
 
 let persistTimer = null;
@@ -124,36 +125,83 @@ function setState(patch) {
   render();
 }
 
-function ensureProgress(key) {
-  if (state.progress[key]) return state.progress[key];
-  const p = initProgress(key);
-  state.progress = { ...state.progress, [key]: p };
-  return p;
+// ---- exercise context (works for both the daily plan and the free library) ----
+// A "ctx" describes the exercise currently open: its skill (kind), which content
+// item, a stable id, and whether its progress lives in the daily store
+// (state.progress[kind], reset each day) or the library store
+// (state.libProgress[id], kept forever).
+function baustSetForDay(di) {
+  const pool = CONTENT.bausteine;
+  const start = planDay(di).bausteineStart ?? ((di * 7) % pool.length);
+  return Array.from({ length: 10 }, (_, i) => (start + i) % pool.length);
+}
+function baustLibSet(setIndex) {
+  const pool = CONTENT.bausteine;
+  const start = (setIndex * 10) % pool.length;
+  return Array.from({ length: 10 }, (_, i) => (start + i) % pool.length).filter(n => n < pool.length);
 }
 
-function initProgress(key) {
-  const di = state.dayIndex;
-  if (key === "vocab") {
-    const deck = CONTENT.decks[idxFor("vocab", di)];
-    return { order: shuffledIndices(deck.cards.length), i: 0, flipped: false, known: [], review: [] };
+function currentCtx() {
+  if (state.openLib) {
+    const { kind, index } = state.openLib;
+    return { mode: "lib", kind, index, id: `lib:${kind}:${index}` };
   }
-  if (key === "bausteine") {
-    const pool = CONTENT.bausteine;
-    const start = planDay(di).bausteineStart ?? ((di * 7) % pool.length);
-    const idxs = Array.from({ length: 10 }, (_, i) => (start + i) % pool.length);
-    const optionOrder = {};
-    idxs.forEach(qi => { optionOrder[qi] = shuffleArr(pool[qi].options); });
-    return { idxs, answers: {}, optionOrder };
+  if (state.openCat) {
+    const kind = state.openCat;
+    return { mode: "day", kind, index: idxFor(kind, state.dayIndex), id: `day:${state.dayIndex}:${kind}` };
   }
-  if (key === "lesen") return { answers: {} };
-  if (key === "hoeren") return { revealed: false, answers: {} };
-  if (key === "schreiben") return { draft: "", checked: {} };
-  if (key === "sprechen") return { practiced: false };
-  if (key === "grammatik") {
-    const g = CONTENT.grammatik[idxFor("grammatik", di)];
-    return { answers: {}, optionOrder: g.items.map(it => shuffleArr(it.options)) };
-  }
+  return null;
+}
+
+function ctxItem(ctx) {
+  if (ctx.kind === "vocab") return CONTENT.decks[ctx.mode === "lib" ? ctx.index : idxFor("vocab", state.dayIndex)];
+  if (ctx.kind === "bausteine") return null; // uses prog.idxs
+  const idx = ctx.mode === "lib" ? ctx.index : idxFor(ctx.kind, state.dayIndex);
+  return CONTENT[ctx.kind][idx];
+}
+
+function initProgressFor(kind, ref) {
+  if (kind === "vocab") { const deck = CONTENT.decks[ref]; return { order: shuffledIndices(deck.cards.length), i: 0, flipped: false, known: [], review: [] }; }
+  if (kind === "bausteine") { const idxs = ref; const optionOrder = {}; idxs.forEach(qi => { optionOrder[qi] = shuffleArr(CONTENT.bausteine[qi].options); }); return { idxs, answers: {}, optionOrder }; }
+  if (kind === "lesen") return { answers: {} };
+  if (kind === "hoeren") return { revealed: false, answers: {} };
+  if (kind === "schreiben") return { draft: "", checked: {} };
+  if (kind === "sprechen") return { practiced: false };
+  if (kind === "grammatik") { const g = CONTENT.grammatik[ref]; return { answers: {}, optionOrder: g.items.map(it => shuffleArr(it.options)) }; }
   return {};
+}
+
+function initForCtx(ctx) {
+  if (ctx.kind === "vocab") return initProgressFor("vocab", ctx.mode === "lib" ? ctx.index : idxFor("vocab", state.dayIndex));
+  if (ctx.kind === "bausteine") return initProgressFor("bausteine", ctx.mode === "lib" ? baustLibSet(ctx.index) : baustSetForDay(state.dayIndex));
+  if (ctx.kind === "grammatik") return initProgressFor("grammatik", ctx.mode === "lib" ? ctx.index : idxFor("grammatik", state.dayIndex));
+  return initProgressFor(ctx.kind, 0);
+}
+
+function ctxProgress(ctx) {
+  if (ctx.mode === "lib") {
+    if (!state.libProgress[ctx.id]) state.libProgress[ctx.id] = initForCtx(ctx);
+    return state.libProgress[ctx.id];
+  }
+  if (!state.progress[ctx.kind]) state.progress[ctx.kind] = initForCtx(ctx);
+  return state.progress[ctx.kind];
+}
+
+// Apply an update to the currently-open exercise's progress and re-render.
+function patchProgress(fn) {
+  const ctx = currentCtx();
+  if (!ctx) return;
+  const next = fn(ctxProgress(ctx));
+  if (ctx.mode === "lib") state.libProgress = { ...state.libProgress, [ctx.id]: next };
+  else state.progress = { ...state.progress, [ctx.kind]: next };
+  persist();
+  render();
+}
+
+// back-compat helper still used by the daily hero bar
+function ensureProgress(key) {
+  if (!state.progress[key]) state.progress[key] = initForCtx({ mode: "day", kind: key });
+  return state.progress[key];
 }
 
 function taskFor(key) {
@@ -182,15 +230,21 @@ function finishDay() {
 }
 
 function advanceVocab(result) {
-  const p = ensureProgress("vocab");
-  const cardIdx = p.order[p.i];
-  const known = result === "known" ? [...p.known, cardIdx] : p.known;
-  const review = result === "review" ? [...p.review, cardIdx] : p.review;
-  const i = p.i + 1;
-  const patch = { progress: { ...state.progress, vocab: { ...p, i, known, review, flipped: false } } };
-  const deck = CONTENT.decks[idxFor("vocab", state.dayIndex)];
-  if (i >= deck.cards.length) patch.done = { ...state.done, vocab: true };
-  setState(patch);
+  const ctx = currentCtx();
+  if (!ctx || ctx.kind !== "vocab") return;
+  patchProgress(p => {
+    const cardIdx = p.order[p.i];
+    return {
+      ...p, i: p.i + 1, flipped: false,
+      known: result === "known" ? [...p.known, cardIdx] : p.known,
+      review: result === "review" ? [...p.review, cardIdx] : p.review
+    };
+  });
+  if (ctx.mode === "day") {
+    const deck = CONTENT.decks[idxFor("vocab", state.dayIndex)];
+    const p = state.progress.vocab;
+    if (p && p.i >= deck.cards.length && !state.done.vocab) setState({ done: { ...state.done, vocab: true } });
+  }
 }
 
 // ------------------------------------------------------------------ render: shell
@@ -235,6 +289,7 @@ function renderSubNav() {
   return `
   <div class="container sub-nav" style="padding-top:14px">
     <a href="#heute" class="nav-btn">Heute</a>
+    <a href="#uebungen" class="nav-btn">Übungen</a>
     <a href="#plan" class="nav-btn">15-Tage-Plan</a>
     <a href="#schreibhilfe" class="nav-btn">Schreibhilfe</a>
     <a href="#sprechhilfe" class="nav-btn">Sprechhilfe</a>
@@ -303,7 +358,6 @@ function renderHeute() {
       </div>
       <div class="focus-title">${esc(pd.focus)}</div>
       <div class="focus-goal">${esc(pd.goal)}</div>
-      ${pd.paper ? `<div class="focus-paper"><span class="focus-paper-label">Modelltest</span> <strong>${esc(PAPERS[pd.paper].label)}</strong> — ${esc(pd.paperTask)}</div>` : ""}
       <div class="focus-tip"><span class="focus-tip-label">Tipp</span> ${esc(pd.tip)}</div>
     </div>
 
@@ -390,20 +444,14 @@ function renderPlan() {
           ${stateBadge}
         </div>
         <div class="plan-day-goal">${esc(pd.goal)}</div>
-        ${pd.paper ? `<div class="plan-day-paper"><span class="plan-paper-tag">${esc(PAPERS[pd.paper].label)}</span>${esc(pd.paperTask)}</div>` : ""}
         <div class="plan-chips">${planTaskChips(pd)}</div>
         <div class="plan-day-tip"><span class="focus-tip-label">Tipp</span> ${esc(pd.tip)}</div>
       </div>
     </div>`;
   }).join("");
-  const legend = Object.values(PAPERS).map(p => `<div class="paper-legend-item"><span class="plan-paper-tag">${esc(p.label)}</span><span class="paper-legend-full">${esc(p.full)}</span></div>`).join("");
   return `
   <section id="plan" class="section container">
     <div class="section-head"><div><h2 class="section-title">15-Tage-Plan</h2><div class="section-sub">1.–15. Juli · fester Fahrplan bis zur Prüfung. Der Tag „Heute“ folgt genau diesem Plan.</div></div></div>
-    <div class="helper-card" style="padding:16px 18px;margin-bottom:14px">
-      <div class="helper-title" style="font-size:15px;margin-bottom:10px">Deine 5 Modelltests</div>
-      <div class="paper-legend">${legend}</div>
-    </div>
     <div class="plan-list">${rows}</div>
   </section>`;
 }
@@ -494,9 +542,7 @@ function renderCelebrate() {
 
 // ------------------------------------------------------------------ render: exercise engines
 
-function renderVocab() {
-  const p = ensureProgress("vocab");
-  const deck = CONTENT.decks[idxFor("vocab", state.dayIndex)];
+function renderVocab(deck, p) {
   const total = deck.cards.length;
   if (p.i >= total) {
     return `
@@ -529,8 +575,7 @@ function renderVocab() {
     </div>`;
 }
 
-function renderBausteine() {
-  const p = ensureProgress("bausteine");
+function renderBausteine(_item, p) {
   const pool = CONTENT.bausteine;
   const answered = Object.keys(p.answers).length;
   const correct = p.idxs.filter(qi => p.answers[qi] === pool[qi].answer).length;
@@ -556,10 +601,7 @@ function renderBausteine() {
     ${rows}`;
 }
 
-function renderLesen() {
-  const item = CONTENT.lesen[idxFor("lesen", state.dayIndex)];
-  const p = ensureProgress("lesen");
-
+function renderLesen(item, p) {
   if (item.type === "mc") {
     const answered = Object.keys(p.answers).length;
     const correct = item.questions.filter((q, i) => p.answers[i] === q.answer).length;
@@ -617,9 +659,7 @@ function renderLesen() {
     <div class="ad-list">${legend}</div>`;
 }
 
-function renderHoeren() {
-  const item = CONTENT.hoeren[idxFor("hoeren", state.dayIndex)];
-  const p = ensureProgress("hoeren");
+function renderHoeren(item, p) {
   const answered = Object.keys(p.answers).length;
   const correct = item.statements.filter((s, i) => p.answers[i] === s.answer).length;
   const rows = item.statements.map((s, i) => {
@@ -642,9 +682,7 @@ function renderHoeren() {
   `;
 }
 
-function renderSchreiben() {
-  const item = CONTENT.schreiben[idxFor("schreiben", state.dayIndex)];
-  const p = ensureProgress("schreiben");
+function renderSchreiben(item, p) {
   const checkedCount = item.leitpunkte.filter((_, i) => p.checked[i]).length;
   const leitHtml = item.leitpunkte.map((lp, i) => {
     const on = !!p.checked[i];
@@ -667,9 +705,7 @@ function renderSchreiben() {
   `;
 }
 
-function renderSprechen() {
-  const item = CONTENT.sprechen[idxFor("sprechen", state.dayIndex)];
-  const p = ensureProgress("sprechen");
+function renderSprechen(item, p) {
   const cueHtml = item.cues.map(c => `<div class="cue-item"><span class="cue-dot">→</span>${esc(c)}</div>`).join("");
   return `
     ${srcTag(item.source)}<div class="task-meta"><span class="task-badge">Teil ${item.teil}</span><span class="task-badge">${item.type === "meinung" ? "Meinung äußern" : "Gemeinsam planen"}</span></div>
@@ -683,9 +719,7 @@ function renderSprechen() {
   `;
 }
 
-function renderGrammatik() {
-  const g = CONTENT.grammatik[idxFor("grammatik", state.dayIndex)];
-  const p = ensureProgress("grammatik");
+function renderGrammatik(g, p) {
   const answered = Object.keys(p.answers).length;
   const correct = g.items.filter((it, i) => p.answers[i] === it.answer).length;
   const rows = g.items.map((it, i) => {
@@ -707,9 +741,88 @@ function renderGrammatik() {
 
 const ENGINES = { vocab: renderVocab, bausteine: renderBausteine, lesen: renderLesen, hoeren: renderHoeren, schreiben: renderSchreiben, sprechen: renderSprechen, grammatik: renderGrammatik };
 
+// Resolve the item + progress for a ctx and run the matching engine.
+function renderEngineFor(ctx) {
+  const prog = ctxProgress(ctx);
+  return ENGINES[ctx.kind](ctxItem(ctx), prog);
+}
+
+// ------------------------------------------------------------------ Übungen library
+const SKILL_NAMES = { lesen: "Leseverstehen", bausteine: "Sprachbausteine", hoeren: "Hörverstehen", grammatik: "Grammatik-Review", vocab: "Wortschatz" };
+
+function libExerciseMeta(kind, index) {
+  const skill = SKILL_NAMES[kind];
+  if (kind === "vocab") { const d = CONTENT.decks[index]; return { title: `${d.de} · ${d.cards.length} Karten`, skill, source: d.source }; }
+  if (kind === "bausteine") {
+    const idxs = baustLibSet(index);
+    const src = CONTENT.bausteine[idxs[0]] && CONTENT.bausteine[idxs[0]].source;
+    return { title: src ? "Brief an Karin (10 Lücken)" : `Übungssatz ${index + 1} · 10 Lücken`, skill, source: src };
+  }
+  const it = CONTENT[kind][index];
+  if (kind === "lesen") { const t = { headline: "Teil 1 · Überschriften", mc: "Teil 2 · Text + Fragen", ads: "Teil 3 · Anzeigen" }[it.type]; return { title: t, skill, source: it.source }; }
+  if (kind === "hoeren") return { title: it.title, skill, source: it.source };
+  if (kind === "grammatik") return { title: it.topic, skill, source: it.source };
+  return { title: skill, skill, source: null };
+}
+
+function libScoreFor(kind, index) {
+  const p = state.libProgress[`lib:${kind}:${index}`];
+  const item = kind === "vocab" ? CONTENT.decks[index] : kind === "bausteine" ? null : CONTENT[kind][index];
+  let total = 0, correct = 0, answered = 0;
+  if (kind === "vocab") { total = item.cards.length; if (p) { answered = p.known.length + p.review.length; correct = p.known.length; } }
+  else if (kind === "bausteine") { const idxs = baustLibSet(index); total = idxs.length; if (p) { answered = Object.keys(p.answers).length; correct = idxs.filter(qi => p.answers[qi] === CONTENT.bausteine[qi].answer).length; } }
+  else if (kind === "lesen") {
+    if (item.type === "mc") { total = item.questions.length; if (p) { answered = Object.keys(p.answers).length; correct = item.questions.filter((q, i) => p.answers[i] === q.answer).length; } }
+    else if (item.type === "headline") { total = item.texts.length; if (p) { answered = Object.keys(p.answers).length; correct = item.texts.filter(t => p.answers[t.n] === t.sol).length; } }
+    else { total = item.situations.length; if (p) { answered = Object.keys(p.answers).length; correct = item.situations.filter(s => p.answers[s.n] === s.sol).length; } }
+  }
+  else if (kind === "hoeren") { total = item.statements.length; if (p) { answered = Object.keys(p.answers).length; correct = item.statements.filter((s, i) => p.answers[i] === s.answer).length; } }
+  else if (kind === "grammatik") { total = item.items.length; if (p) { answered = Object.keys(p.answers).length; correct = item.items.filter((it, i) => p.answers[i] === it.answer).length; } }
+  return { total, correct, answered, touched: !!p };
+}
+function libScore(ctx) { return libScoreFor(ctx.kind, ctx.index); }
+
+function renderUebungen() {
+  const groups = [
+    { kind: "lesen", items: CONTENT.lesen.map((_, i) => i) },
+    { kind: "bausteine", items: Array.from({ length: Math.ceil(CONTENT.bausteine.length / 10) }, (_, i) => i) },
+    { kind: "hoeren", items: CONTENT.hoeren.map((_, i) => i) },
+    { kind: "grammatik", items: CONTENT.grammatik.map((_, i) => i) },
+    { kind: "vocab", items: CONTENT.decks.map((_, i) => i) }
+  ];
+  const blocks = groups.map(g => {
+    const cards = g.items.map(index => {
+      const meta = libExerciseMeta(g.kind, index);
+      const s = libScoreFor(g.kind, index);
+      let badge;
+      if (g.kind === "vocab") badge = s.answered ? `<span class="lib-score part">${s.correct}/${s.total} gewusst</span>` : `<span class="lib-score neu">neu</span>`;
+      else if (!s.touched) badge = `<span class="lib-score neu">neu</span>`;
+      else badge = `<span class="lib-score ${s.correct === s.total ? "full" : "part"}">${s.correct}/${s.total} richtig</span>`;
+      const own = meta.source && meta.source.startsWith("Eigen");
+      const real = meta.source ? `<span class="lib-real ${own ? "own" : ""}" title="${esc(meta.source)}">${own ? "dein PDF" : "● echt"}</span>` : "";
+      return `<button class="lib-card" data-action="open-lib" data-kind="${g.kind}" data-index="${index}">
+        <div class="lib-card-top"><span class="lib-title">${esc(meta.title)}</span>${real}</div>
+        <div class="lib-card-bottom">${badge}<span class="lib-open">Üben →</span></div>
+      </button>`;
+    }).join("");
+    return `<div class="lib-group">
+      <div class="lib-group-title">${esc(SKILL_NAMES[g.kind])} <span class="lib-count">${g.items.length}</span></div>
+      <div class="lib-grid">${cards}</div>
+    </div>`;
+  }).join("");
+  return `
+  <section id="uebungen" class="section container">
+    <div class="section-head"><div><h2 class="section-title">Übungen</h2><div class="section-sub">Alle Aufgaben frei wählbar. „● echt“ = direkt aus einem telc-Modelltest. Ergebnisse werden gespeichert.</div></div></div>
+    ${blocks}
+  </section>`;
+}
+
 function renderModal() {
-  if (!state.openCat) return "";
-  const key = state.openCat;
+  const ctx = currentCtx();
+  if (!ctx) return "";
+  if (ctx.mode === "lib") return renderLibModal(ctx);
+
+  const key = ctx.kind;
   const cat = CATS.find(c => c.key === key);
   const done = !!state.done[key];
   return `
@@ -723,10 +836,34 @@ function renderModal() {
         <div class="modal-time">⏱ ${cat.time}</div>
       </div>
       <div class="modal-body">
-        ${ENGINES[key]()}
+        ${renderEngineFor(ctx)}
         <div style="margin-top:22px;padding-top:18px;border-top:1px solid #EFEFF1;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div style="font-size:12.5px;color:#0B7359;font-weight:700">${done ? "✓ Heute erledigt" : ""}</div>
           <button class="mark-done-btn" data-action="toggle-done" data-key="${key}">${done ? "Als offen markieren" : "Als erledigt markieren"}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderLibModal(ctx) {
+  const meta = libExerciseMeta(ctx.kind, ctx.index);
+  const sc = libScore(ctx);
+  return `
+  <div class="overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-head-left">
+          <button class="back-btn" data-action="close-lib" aria-label="Zurück">←</button>
+          <div><div class="modal-title">${esc(meta.title)}</div><div class="modal-task">${esc(meta.skill)}</div></div>
+        </div>
+        ${sc.total ? `<div class="modal-time">${sc.correct}/${sc.total} richtig</div>` : ""}
+      </div>
+      <div class="modal-body">
+        ${renderEngineFor(ctx)}
+        <div style="margin-top:22px;padding-top:18px;border-top:1px solid #EFEFF1;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="font-size:12.5px;color:#6B6B78;font-weight:600">Dein Ergebnis wird gespeichert.</div>
+          <button class="mark-done-btn secondary" data-action="reset-lib">Neu starten</button>
         </div>
       </div>
     </div>
@@ -743,6 +880,7 @@ function render() {
       ${renderHero()}
       ${renderSubNav()}
       ${renderHeute()}
+      ${renderUebungen()}
       ${renderPlan()}
       ${renderSchreibhilfe()}
       ${renderSprechhilfe()}
@@ -761,11 +899,13 @@ function readMockInput(id, max) {
 
 function onClick(e) {
   const overlay = e.target.closest(".overlay");
-  if (overlay && !e.target.closest(".modal")) { setState({ openCat: null }); return; }
+  if (overlay && !e.target.closest(".modal")) { setState({ openCat: null, openLib: null }); return; }
 
   const flip = e.target.closest('[data-action="flip"]');
   if (flip) {
-    const p = ensureProgress("vocab");
+    const ctx = currentCtx();
+    if (!ctx) return;
+    const p = ctxProgress(ctx);
     p.flipped = !p.flipped;
     schedulePersist();
     flip.classList.toggle("flipped", p.flipped);
@@ -776,8 +916,15 @@ function onClick(e) {
   if (!btn) return;
   const action = btn.dataset.action;
 
-  if (action === "open") { setState({ openCat: btn.dataset.key }); return; }
+  if (action === "open") { setState({ openCat: btn.dataset.key, openLib: null }); return; }
   if (action === "close") { setState({ openCat: null }); return; }
+  if (action === "open-lib") { setState({ openLib: { kind: btn.dataset.kind, index: Number(btn.dataset.index) }, openCat: null }); return; }
+  if (action === "close-lib") { setState({ openLib: null }); return; }
+  if (action === "reset-lib") {
+    const ctx = currentCtx();
+    if (ctx && ctx.mode === "lib") { const { [ctx.id]: _drop, ...rest } = state.libProgress; setState({ libProgress: rest }); }
+    return;
+  }
   if (action === "finish-day") { finishDay(); return; }
   if (action === "flash-known") { advanceVocab("known"); return; }
   if (action === "flash-review") { advanceVocab("review"); return; }
@@ -789,48 +936,40 @@ function onClick(e) {
   }
   if (action === "answer-bausteine") {
     const qi = Number(btn.dataset.qi), opt = btn.dataset.opt;
-    const p = ensureProgress("bausteine");
-    setState({ progress: { ...state.progress, bausteine: { ...p, answers: { ...p.answers, [qi]: opt } } } });
+    patchProgress(p => ({ ...p, answers: { ...p.answers, [qi]: opt } }));
     return;
   }
   if (action === "answer-grammatik") {
     const qi = Number(btn.dataset.qi), opt = btn.dataset.opt;
-    const p = ensureProgress("grammatik");
-    setState({ progress: { ...state.progress, grammatik: { ...p, answers: { ...p.answers, [qi]: opt } } } });
+    patchProgress(p => ({ ...p, answers: { ...p.answers, [qi]: opt } }));
     return;
   }
   if (action === "answer-lesen-mc") {
     const qi = Number(btn.dataset.qi), opt = btn.dataset.opt;
-    const p = ensureProgress("lesen");
-    setState({ progress: { ...state.progress, lesen: { ...p, answers: { ...p.answers, [qi]: opt } } } });
+    patchProgress(p => ({ ...p, answers: { ...p.answers, [qi]: opt } }));
     return;
   }
   if (action === "answer-lesen-match") {
     const n = Number(btn.dataset.n), choice = btn.dataset.choice;
-    const p = ensureProgress("lesen");
-    setState({ progress: { ...state.progress, lesen: { ...p, answers: { ...p.answers, [n]: choice } } } });
+    patchProgress(p => ({ ...p, answers: { ...p.answers, [n]: choice } }));
     return;
   }
   if (action === "answer-hoeren") {
     const i = Number(btn.dataset.i), val = btn.dataset.val === "true";
-    const p = ensureProgress("hoeren");
-    setState({ progress: { ...state.progress, hoeren: { ...p, answers: { ...p.answers, [i]: val } } } });
+    patchProgress(p => ({ ...p, answers: { ...p.answers, [i]: val } }));
     return;
   }
   if (action === "toggle-transcript") {
-    const p = ensureProgress("hoeren");
-    setState({ progress: { ...state.progress, hoeren: { ...p, revealed: !p.revealed } } });
+    patchProgress(p => ({ ...p, revealed: !p.revealed }));
     return;
   }
   if (action === "toggle-leitpunkt") {
     const i = Number(btn.dataset.i);
-    const p = ensureProgress("schreiben");
-    setState({ progress: { ...state.progress, schreiben: { ...p, checked: { ...p.checked, [i]: !p.checked[i] } } } });
+    patchProgress(p => ({ ...p, checked: { ...p.checked, [i]: !p.checked[i] } }));
     return;
   }
   if (action === "toggle-practiced") {
-    const p = ensureProgress("sprechen");
-    setState({ progress: { ...state.progress, sprechen: { ...p, practiced: !p.practiced } } });
+    patchProgress(p => ({ ...p, practiced: !p.practiced }));
     return;
   }
   if (action === "jump-schreibhilfe" || action === "jump-sprechhilfe") {
@@ -863,7 +1002,9 @@ function onClick(e) {
 
 function onInput(e) {
   if (e.target.matches('[data-action-input="schreiben-draft"]')) {
-    const p = ensureProgress("schreiben");
+    const ctx = currentCtx();
+    if (!ctx || ctx.kind !== "schreiben") return;
+    const p = ctxProgress(ctx);
     p.draft = e.target.value;
     schedulePersist();
   }
@@ -872,7 +1013,7 @@ function onInput(e) {
 const root = document.getElementById("root");
 root.addEventListener("click", onClick);
 root.addEventListener("input", onInput);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.openCat) setState({ openCat: null }); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && (state.openCat || state.openLib)) setState({ openCat: null, openLib: null }); });
 
 persist(); // anchor calendar date / rolled-over state on first load
 render();

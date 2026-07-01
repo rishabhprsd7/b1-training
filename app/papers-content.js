@@ -227,3 +227,46 @@ CONTENT.decks.push({
     { de: "sich verbrennen", en: "to burn oneself", ex: "Ich habe mich an der heißen Pfanne verbrannt." }
   ]
 });
+
+// ---------------------------------------------------------------- LESEVERSTEHEN (telc Übungstest 1)
+// Verified against the paper's Lösungsschlüssel (page 41):
+//   Teil 1: 1i 2d 3b 4f 5h   ·   Teil 2: 6c 7c 8b 9a 10a
+// index 9 — Übungstest 1, Lesen Teil 1 (Überschriften)
+CONTENT.lesen.push({
+  type: "headline", source: "telc Übungstest 1 · Leseverstehen Teil 1",
+  title: "Teil 1 — Überschriften zuordnen",
+  intro: "Lesen Sie die 10 Überschriften a–j und die 5 Texte. Finden Sie für jeden Text die passende Überschrift. Jede Überschrift nur einmal.",
+  texts: [
+    { n: 1, body: "Wer ist der typische Computerfan? Das B.A.T. Freizeitforschungsinstitut Hamburg ermittelte einige Eigenschaften: Er ist männlich, jung und hat einen höheren Schulabschluss. Bei der Beschäftigung am heimischen Computer stehen Textverarbeitung und Spiele ganz oben, es folgen private Buchhaltung, Grafikprogramme und Tabellenkalkulation.", sol: "i" },
+    { n: 2, body: "„Bahn&Bike“ heißt ein 222-seitiger Prospekt, den die Deutsche Bahn AG in Zusammenarbeit mit der Deutschen Zentrale für Tourismus herausgebracht hat und der wichtige Informationen für jene bereitstellt, die ihren Radurlaub mit Bahnfahren verbinden wollen. Das Motto lautet: Hin mit der Bahn – das Rad vor Ort mieten.", sol: "d" },
+    { n: 3, body: "Ausführliche Informationen zum Thema „Schlafstörungen“ finden Sie im gleichnamigen Patientenratgeber von Dr. med. Fritz Hohagen. Sie erfahren, was den Schlaf stört und was Sie dagegen unternehmen können. Für 9,95 Euro erhalten Sie das Buch in Apotheken oder direkt beim Wort&Bild Verlag.", sol: "b" },
+    { n: 4, body: "Jetzt wird für Familien Reisen mit der Bahn zwischen Österreich und Deutschland noch ein gutes Stück günstiger. Denn ab 6. Oktober gibt es den Familien-Super-Sparpreis. Ein echter Traumpreis für die ganze Familie – vom Baby bis zum Großpapa – da kann man wirklich sparen.", sol: "f" },
+    { n: 5, body: "Touristen zwischen 14 und 29 Jahren sowie zwischen 40 und 49 Jahren haben ein besonders großes Interesse an der Kultur des jeweiligen Reiselandes, während die Gruppe der 30- bis 39-jährigen im Urlaub „eine Kulturpause einlegt“. Grundsätzlich gelte: Je höher das Einkommen und die Schulbildung, umso mehr besteht im Urlaub der Wunsch, Land und Leute kennenzulernen.", sol: "h" }
+  ],
+  headlines: [
+    { id: "a", text: "Immer mehr deutsche Familien reisen mit der Bahn" },
+    { id: "b", text: "Buchtipp: Hilfe bei Schlafproblemen" },
+    { id: "c", text: "Der Computer: Liebstes Hobby von Deutschlands Frauen" },
+    { id: "d", text: "Neu bei der Bahn: Spezielle Informationen und Angebote für Radfahrer" },
+    { id: "e", text: "Neu am Markt: Billige Schlaftabletten" },
+    { id: "f", text: "Familien reisen billiger" },
+    { id: "g", text: "Urlaub mit dem Fahrrad in Deutschland immer beliebter" },
+    { id: "h", text: "Kultur im Urlaub: Interessen je nach Alter unterschiedlich" },
+    { id: "i", text: "Umfrage: Wer verwendet den Computer am häufigsten?" },
+    { id: "j", text: "Deutschland: Immer mehr Touristen reisen in den Westen" }
+  ]
+});
+// index 10 — Übungstest 1, Lesen Teil 2 (Büro-Werkstatt)
+CONTENT.lesen.push({
+  type: "mc", source: "telc Übungstest 1 · Leseverstehen Teil 2",
+  title: "Teil 2 — Lesen & Multiple Choice",
+  intro: "Lesen Sie den Text „Büro-Werkstatt: Chance für behinderte Menschen“ und die Aufgaben 6–10. Welche Lösung (a, b oder c) ist richtig?",
+  text: "Computerarbeit im Auftrag privater Firmen – jeder Dritte findet nach einem fünfmonatigen Kurs einen Job. Margit, die junge Frau im Rollstuhl, erledigt die Lohnverrechnung für einen Verlag. Reinhard, seit der Geburt gehbehindert, tippt für die Direktion Protokolle und Preislisten. Alle drei können auf eine abgeschlossene kaufmännische Ausbildung verweisen, wurden aber auf dem Arbeitsamt als „schwer vermittelbar“ eingestuft.\n\nZurzeit arbeiten sie in der „Büro-Werkstatt“ in Wien-Stadlau. In einem fünfmonatigen Kurs lernen sie, das in der Schule Gelernte in die Praxis umzusetzen. Ihre Dienste werden von Privatfirmen zugekauft. Gleichzeitig wird ihnen bei der Jobsuche geholfen. „Leicht ist das nicht“, sagt Betreuer Günther Hos. Zwar wären die Firmen gesetzlich verpflichtet, pro 25 Beschäftigte einen Behinderten einzustellen; die meisten nutzen jedoch die Möglichkeit, sich per „Ausgleichstaxe“ (rund 150 Euro monatlich) freizukaufen.\n\n„Immerhin haben wir seit der Vereinsgründung vor drei Jahren ein Drittel unserer Leute untergebracht“, sagt Hos. Gegründet wurde die Büro-Werkstatt von der Lehrerin Heide Hanisch, die nicht länger hinnehmen wollte, dass ihre behinderten Schüler ausgebildet werden, um dann als Arbeitnehmer nicht gebraucht zu werden.",
+  questions: [
+    { q: "In einem fünfmonatigen Kurs können die Teilnehmer …", options: ["praktische Erfahrungen mit der Büroarbeit sammeln.", "eine berufliche Ausbildung abschließen.", "lernen, was sie in der Schule verpasst haben."], answer: "praktische Erfahrungen mit der Büroarbeit sammeln." },
+    { q: "Die Büro-Werkstatt versucht außerdem, …", options: ["für die behinderten Menschen eine Arbeit zu finden.", "auch nicht behinderten Arbeitslosen zu helfen.", "Behinderte auf die Abschlussprüfungen vorzubereiten."], answer: "für die behinderten Menschen eine Arbeit zu finden." },
+    { q: "Laut Gesetz müssen österreichische Firmen pro 25 Beschäftigte …", options: ["einen Behinderten einstellen oder eine monatliche Gebühr bezahlen.", "eine besondere Steuer zahlen.", "für jeden Behinderten monatlich 150 Euro bezahlen."], answer: "einen Behinderten einstellen oder eine monatliche Gebühr bezahlen." },
+    { q: "Seit der Vereinsgründung …", options: ["konnte für ein Drittel der behinderten Kursteilnehmer eine Arbeit gefunden werden.", "konnte Günther Hos für den Verein schon viel Geld sparen.", "zahlen Arbeitslose um ein Drittel weniger Steuern."], answer: "konnte für ein Drittel der behinderten Kursteilnehmer eine Arbeit gefunden werden." },
+    { q: "Die Lehrerin, die die Büro-Werkstatt gegründet hat, …", options: ["wollte etwas tun, damit Behinderte einen Arbeitsplatz erhalten.", "wollte nicht länger Geografie und Geschichte unterrichten.", "wird nach der Ausbildung der Behinderten nicht mehr gebraucht."], answer: "wollte etwas tun, damit Behinderte einen Arbeitsplatz erhalten." }
+  ]
+});
