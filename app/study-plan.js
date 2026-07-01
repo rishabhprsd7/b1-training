@@ -13,7 +13,6 @@ export const PAPERS = {
   P1: { label: "telc Übungstest 1", full: "telc Deutsch B1 · Übungstest 1 (2020)" },
   P2: { label: "Zertifikat Deutsch Übungstest", full: "Zertifikat Deutsch B1 · Übungstest (ZD)" },
   P3: { label: "telc Übungstest (neu)", full: "telc Deutsch B1 · Übungstest (neuere Form: Lesen/Hören 4 Teile, Kurznachricht)" },
-  P4: { label: "Goethe/ÖSD Modellsatz", full: "Goethe·ÖSD Zertifikat B1 · Modellsatz Erwachsene" },
   P5: { label: "telc B1a Probe", full: "telc Deutsch B1a · Probe (Auszug: Lesen + Sprachbausteine)" }
 };
 
@@ -103,7 +102,7 @@ export const STUDY_PLAN = [
 
   { day: 11, date: "2026-07-11", phase: "Vertiefung",
     focus: "Review Schwachstelle: Arbeit & Beruf",
-    deck: 0, lesen: 3, hoeren: 2, schreiben: 9, sprechen: 4, grammatik: 0, bausteineStart: 25,
+    deck: 0, lesen: 3, hoeren: 2, schreiben: 7, sprechen: 4, grammatik: 0, bausteineStart: 25,
     bausteineFocus: "Adjektivendungen (ein neues / einen warmen)",
     paper: "P3", paperTask: "telc Übungstest (neu): Schreiben – die echte Kurznachricht („Kommst du am Dienstag zum Training?“) ist in der Übung „Schriftlicher Ausdruck“ hinterlegt; dazu Sprechen Teil 2 „planen“ & Teil 3 „Meinung begründen“ im PDF.",
     goal: "Bewerbungs-/Berufswortschatz festigen (häufiges Prüfungsthema). Neue Schreib-Aufgabentypen üben.",
@@ -111,20 +110,20 @@ export const STUDY_PLAN = [
 
   { day: 12, date: "2026-07-12", phase: "Prüfungssimulation",
     focus: "Kompletter schriftlicher Test (Simulation)",
-    deck: 1, lesen: 5, hoeren: 4, schreiben: 7, sprechen: 5, grammatik: 1, bausteineStart: 6,
+    deck: 1, lesen: 5, hoeren: 3, schreiben: 6, sprechen: 5, grammatik: 1, bausteineStart: 6,
     bausteineFocus: "Gemischt unter Prüfungsbedingungen",
     special: "mock-written",
-    paper: "P4", paperTask: "VOLLSIMULATION: Goethe/ÖSD Modellsatz – Lesen (65 Min) + Hören (40 Min) + Schreiben (60 Min), ohne Pause. Die echte Hör-Aufgabe „Gespräch über ein Fest“ und die Schreibaufgabe „Geburtstagsfeier“ sind in-App hinterlegt. Punkte ins Mock-Test-Protokoll.",
+    paper: "P3", paperTask: "VOLLSIMULATION: telc Übungstest (neu) komplett schriftlich am Stück – Leseverstehen + Sprachbausteine + Hörverstehen + Schriftlicher Ausdruck, ohne Pause. Die echte Kurznachricht ist in-App hinterlegt. Punkte ins Mock-Test-Protokoll.",
     goal: "Den kompletten schriftlichen Teil unter echten Bedingungen durchziehen und selbst bewerten.",
-    tip: "Danach Punkte gegen 135 (schriftlich) prüfen. Jeden Fehler notieren – das ist dein Plan für morgen." },
+    tip: "Danach Punkte gegen 135 (schriftlich, telc) prüfen. Jeden Fehler notieren – das ist dein Plan für morgen." },
 
   { day: 13, date: "2026-07-13", phase: "Prüfungssimulation",
     focus: "Fehleranalyse & gezieltes Nacharbeiten",
-    deck: 4, lesen: 0, hoeren: 0, schreiben: 8, sprechen: 8, grammatik: 2, bausteineStart: 12,
+    deck: 4, lesen: 0, hoeren: 0, schreiben: 0, sprechen: 6, grammatik: 2, bausteineStart: 12,
     bausteineFocus: "Genau die Muster wiederholen, die gestern falsch waren",
-    paper: "P4", paperTask: "Goethe/ÖSD Modellsatz: alle Fehler von gestern durchgehen (Transkriptionen & Lösungen). In-App echte Aufgaben: Schreiben Aufgabe 3 (Entschuldigung an Frau Müller) + Sprechen „Krankenhausbesuch planen“.",
+    paper: "P3", paperTask: "telc Übungstest (neu): alle Fehler von gestern durchgehen (Lösungsschlüssel & Hörtexte). In-App: Mündlich Teil 2 „Gruppenreisen“ laut üben (echte telc-Aufgabe).",
     goal: "Jeden Fehler aus der Simulation verstehen und den Typ noch einmal üben. Sprechen laut trainieren.",
-    tip: "Sprich Teil 2 wirklich 3 Min am Stück. Nutze „Meiner Meinung nach …“ und frag „Was denkst du dazu?“." },
+    tip: "Sprich Teil 2 „über ein Thema“ wirklich 3 Min am Stück. Nutze „Meiner Meinung nach …“ und frag „Was denkst du dazu?“." },
 
   { day: 14, date: "2026-07-14", phase: "Feinschliff",
     focus: "Zweite Simulation & mündliche Generalprobe",
@@ -138,7 +137,7 @@ export const STUDY_PLAN = [
     focus: "Prüfungstag – kurzes Aufwärmen",
     deck: 0, lesen: 0, hoeren: 0, schreiben: 0, sprechen: 0, grammatik: 1, bausteineStart: 0,
     special: "exam-day",
-    paper: "P4", paperTask: "Nur überfliegen: eine Leseverstehen-Teil-3-Aufgabe + die Redemittel (Schreibhilfe & Sprechhilfe). Kein neuer Stoff.",
+    paper: "P5", paperTask: "Nur überfliegen: eine Leseverstehen-Teil-3-Aufgabe (telc B1a) + die Redemittel (Schreibhilfe & Sprechhilfe). Kein neuer Stoff.",
     goal: "Leicht aufwärmen: 5 Min Karten durchblättern, Redemittel überfliegen. Kein Stress.",
     tip: "Hören: Aufgaben immer VORHER lesen. Schreiben: alle 4 Leitpunkte. Sprechen: frei reden, Partner einbeziehen. Viel Erfolg! 🍀" }
 ];

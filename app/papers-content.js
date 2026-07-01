@@ -1,10 +1,10 @@
-// B1 Sprint — REAL exercises lifted from the supplied model tests.
+// B1 Sprint — REAL exercises lifted from the supplied telc model tests.
+// (telc only — the Goethe/ÖSD Modellsatz is a different exam and is not used.)
 // Every item is transcribed from the actual PDFs and tagged with `source`.
 // This module appends the items to the existing CONTENT pools (mutating the
 // shared arrays) at fixed, documented indices that study-plan.js points at.
-// Answer keys: telc B1a solutions are printed in that paper; the Goethe/ÖSD
-// listening answers and the telc Übungstest Sprachbausteine answers are derived
-// directly from the transcript / the unambiguous grammar of the printed text.
+// Answer keys: telc B1a solutions are printed in that paper; the telc Übungstest
+// Sprachbausteine answers are derived from the unambiguous grammar of the text.
 import { CONTENT } from "./content.js";
 
 // ---------------------------------------------------------------- LESEVERSTEHEN
@@ -86,25 +86,6 @@ CONTENT.lesen.push({
   ]
 });
 
-// ---------------------------------------------------------------- HÖRVERSTEHEN
-// Goethe/ÖSD Zertifikat B1 Modellsatz — Hören Teil 3 (Gespräch über ein Fest),
-// Aufgaben 16–22, alle Richtig/Falsch. Antworten aus der Transkription abgeleitet.
-// index 4
-CONTENT.hoeren.push({
-  title: "Gespräch über ein Fest", kind: "Gespräch · Goethe/ÖSD Modellsatz, Hören Teil 3",
-  source: "Goethe/ÖSD Zertifikat B1 Modellsatz · Hören Teil 3",
-  transcript: "Florian: Ach ja, du wolltest ja am Samstag zu einem Fest, oder?\nNadia: Ja, es war ein Geburtstagsfest. Anna, die Freundin meiner Mutter, wurde 50. Ihr Mann ist Diplomat und die beiden haben ein großes Fest gemacht – an die 60 Leute. Schon speziell, wie die wohnen: ein richtiges Traumhaus, eine große Eingangshalle, wunderschöne alte Möbel, eine riesige Terrasse. So ein Haus, das wär schon was.\nFlorian: Und deine Mutter?\nNadia: Die musste mich natürlich allen vorstellen: „Das ist meine Tochter, sie studiert Medienwissenschaft, sie will später zum Fernsehen und Reportagen machen.“ Ganz schön peinlich.\nFlorian: Und das Essen?\nNadia: Vom Feinsten – ein kaltes Buffet, danach drei, vier Hauptgerichte und Nachspeisen.\nNadia: Das Beste war die Musik. Der Klavierspieler war genial. Ich habe mich neben das Klavier gesetzt, und er fragte, ob ich auch Musik mache. Ich sagte, ich spiele Querflöte und Klavier, aber nur als Hobby. In seiner Pause sollte ich mich ans Klavier setzen und etwas vorspielen. Ich habe ein paar klassische Lieder gespielt; als jemand Jazz hören wollte, kam zum Glück der Pianist zurück. Als wir nach Mitternacht gingen, spielte er immer noch Jazz.",
-  statements: [
-    { text: "Bei dem Fest wurde der Geburtstag von Annas Mann gefeiert.", answer: false },
-    { text: "Nadia ist vom Haus der Gastgeber begeistert.", answer: true },
-    { text: "Nadia arbeitet beim Fernsehen.", answer: false },
-    { text: "Das Essen war ausgezeichnet.", answer: true },
-    { text: "Nadia hat zusammen mit dem Musiker gespielt.", answer: false },
-    { text: "Nadia hat auch Jazz gespielt.", answer: false },
-    { text: "Das Fest dauerte bis nach 12 Uhr nachts.", answer: true }
-  ]
-});
-
 // ---------------------------------------------------------------- SPRACHBAUSTEINE
 // telc Deutsch B1 Übungstest 1 — Sprachbausteine Teil 1 (Lückentext „Brief an
 // Karin“, Aufgaben 21–30). Reihenfolge des echten Briefs; Lösungen aus der
@@ -133,21 +114,7 @@ CONTENT.schreiben.push({
   situation: "Sie haben von Ihrer Freundin Marianne eine E-Mail bekommen: Sie möchte Sie in Ihrem Land besuchen, war aber noch nie da und weiß nicht, wann die beste Reisezeit ist und ob es sehr heiß wird. Antworten Sie und schreiben Sie zu allen vier Punkten.",
   leitpunkte: ["welche Ausflüge Sie mit Marianne machen wollen", "was die beste Jahreszeit für die Reise ist", "welche Kleidung sie mitnehmen soll", "wie sie sich am besten auf die Reise vorbereiten kann"]
 });
-// index 7 — Goethe/ÖSD Modellsatz, Schreiben Aufgabe 1
-CONTENT.schreiben.push({
-  register: "informell", recipient: "Liebe/r …,",
-  source: "Goethe/ÖSD Modellsatz · Schreiben Aufgabe 1",
-  situation: "Sie haben vor einer Woche Ihren Geburtstag gefeiert. Ein Freund/eine Freundin konnte nicht kommen, weil er/sie krank war. Schreiben Sie eine E-Mail (ca. 80 Wörter) zu allen drei Punkten.",
-  leitpunkte: ["Beschreiben Sie: Wie war die Feier?", "Begründen Sie: Welches Geschenk finden Sie besonders toll und warum?", "Machen Sie einen Vorschlag für ein Treffen."]
-});
-// index 8 — Goethe/ÖSD Modellsatz, Schreiben Aufgabe 3
-CONTENT.schreiben.push({
-  register: "semi-formell", recipient: "Sehr geehrte Frau Müller,",
-  source: "Goethe/ÖSD Modellsatz · Schreiben Aufgabe 3",
-  situation: "Ihre Kursleiterin, Frau Müller, hat Sie zu einem Gespräch über Ihre persönlichen Lernziele eingeladen. Zu dem Termin können Sie aber nicht kommen. Schreiben Sie eine kurze E-Mail (ca. 40 Wörter).",
-  leitpunkte: ["Entschuldigen Sie sich höflich.", "Berichten Sie, warum Sie nicht kommen können.", "Vergessen Sie Anrede und Gruß nicht."]
-});
-// index 9 — telc Übungstest (neu): Kurznachricht
+// index 7 — telc Übungstest (neu): Kurznachricht
 CONTENT.schreiben.push({
   register: "Kurznachricht", recipient: "Hallo,",
   source: "telc Übungstest (neu) · Schreiben (Kurznachricht)",
@@ -169,11 +136,4 @@ CONTENT.sprechen.push({
   source: "telc Übungstest 1 · Mündlich Teil 3",
   topic: "Sie haben im Urlaub nette Deutsche kennengelernt. Bevor alle wieder nach Hause fahren, möchten Sie eine Abschiedsparty feiern. Planen Sie die Party gemeinsam und entscheiden Sie, wer welche Aufgaben übernimmt.",
   cues: ["Wann und wo?", "Essen", "Getränke", "Wer bezahlt wofür?"]
-});
-// index 8 — Goethe/ÖSD Modellsatz, Sprechen Teil 1
-CONTENT.sprechen.push({
-  teil: 3, type: "planen",
-  source: "Goethe/ÖSD Modellsatz · Sprechen Teil 1 (gemeinsam planen)",
-  topic: "Ein Teilnehmer aus Ihrem Deutschkurs hatte einen Unfall und liegt im Krankenhaus. Diese Woche möchten Sie ihn mit einem Geschenk der ganzen Gruppe besuchen. Nächste Woche darf er nach Hause – da er allein lebt, braucht er Hilfe. Planen und entscheiden Sie gemeinsam.",
-  cues: ["Wann besuchen? (Tag, Uhrzeit)", "Wie hinkommen?", "Was mitnehmen? (Geschenk der Gruppe)", "Wie helfen? (vom Krankenhaus abholen, einkaufen …)"]
 });
