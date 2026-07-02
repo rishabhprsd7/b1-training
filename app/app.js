@@ -3,6 +3,7 @@ import "./papers-content.js"; // appends real exam exercises to the CONTENT pool
 import { STUDY_PLAN } from "./study-plan.js";
 import { getSyncMeta, setSyncMeta, syncReady, syncPull, syncPush } from "./sync.js";
 import { DOPPEL, DA_WOERTER, DA_REFLEXIV_NOTE, LERN_METHODE, SATZ_ROTATION, SPRECH_STRATEGIE, SPRECH_BEWERTUNG, SCHREIB_STRATEGIE, MUSTER_EMAIL } from "./redemittel.js";
+import { ttsAvailable, ttsState, onTts, ttsPlay, ttsPauseResume, ttsStop, ttsSetRate } from "./tts.js";
 
 const STORAGE_KEY = "b1sprint-state-v1";
 const EXAM_DATE = new Date("2026-07-15T00:00:00");
@@ -921,6 +922,26 @@ function renderLesen(item, p, reveal = true) {
     <div class="ad-list">${legend}</div>`;
 }
 
+// Audio-Player für Hörverstehen: liest das Transkript vor (deutsche
+// System-Stimme), damit Hören wirklich Hören ist — auch im Mock-Test,
+// wo das Transkript versteckt bleibt.
+function ttsPlayerHtml(key, hint) {
+  if (!ttsAvailable()) {
+    return `<div class="tts-player" data-key="${esc(key)}"><span class="tts-hint">🔇 Vorlesen wird von diesem Browser nicht unterstützt — Transkript nutzen.</span></div>`;
+  }
+  const s = ttsState();
+  const mine = s.speaking && s.key === key;
+  return `
+  <div class="tts-player" data-key="${esc(key)}" data-hint="${esc(hint)}">
+    <button class="tts-btn main" data-action="tts-toggle" data-key="${esc(key)}">${mine ? (s.paused ? "▶ Weiter" : "⏸ Pause") : "▶ Anhören"}</button>
+    ${mine ? `<button class="tts-btn" data-action="tts-stop">⏹</button>` : ""}
+    <button class="tts-btn ${s.rate < 1 ? "on" : ""}" data-action="tts-rate" title="Langsamer vorlesen">🐢 langsam</button>
+    ${mine && !s.paused
+      ? `<span class="tts-live">▁▃▅ spielt · Satz ${s.at + 1}/${s.total}</span>`
+      : `<span class="tts-hint">${esc(hint)}</span>`}
+  </div>`;
+}
+
 function renderHoeren(item, p, reveal = true) {
   const answered = Object.keys(p.answers).length;
   const correct = item.statements.filter((s, i) => p.answers[i] === s.answer).length;
@@ -938,8 +959,11 @@ function renderHoeren(item, p, reveal = true) {
       <button class="mark-done-btn secondary" data-action="toggle-transcript">${p.revealed ? "Transkript ausblenden" : "Transkript anzeigen"}</button>
     </div>
     ${p.revealed ? `<div class="passage">${esc(item.transcript)}</div>` : ""}` : "";
+  const player = ttsPlayerHtml("h:" + item.title,
+    reveal ? "Erst Aussagen lesen, dann anhören — Transkript zu lassen!" : "Wie in der Prüfung: Aussagen lesen, dann anhören.");
   return `
     ${reveal ? srcTag(item.source) : ""}<div class="ex-intro"><strong>${esc(item.kind)}:</strong> „${esc(item.title)}“ — Tipp: Lesen Sie zuerst die Aussagen, wie in der echten Prüfung.</div>
+    ${player}
     <div class="ex-progress">${answered} / ${item.statements.length} beantwortet${reveal ? ` · ${correct} richtig` : ""}</div>
     ${rows}
     ${transcriptBlock}
@@ -1340,6 +1364,13 @@ function render() {
     else if (oldOverlay) newOverlay.scrollTop = overlayY;
   }
   overlayToTop = false;
+  // Audio stoppen, wenn die zugehörige Hör-Übung nicht mehr sichtbar ist
+  // (Modal geschlossen, Mock-Teil gewechselt, Tab gewechselt).
+  const st = ttsState();
+  if (st.speaking) {
+    const pl = document.querySelector(".tts-player");
+    if (!pl || pl.dataset.key !== st.key) ttsStop();
+  }
 }
 
 // Set by navigation actions (next mock part, result screen) where the new modal
@@ -1387,6 +1418,17 @@ function onClick(e) {
     return;
   }
   if (action === "tab") { switchTab(btn.dataset.tab); return; }
+  if (action === "tts-toggle") {
+    const k = btn.dataset.key;
+    const st = ttsState();
+    if (st.speaking && st.key === k) { ttsPauseResume(); return; }
+    const ctx = currentCtx();
+    const item = ctx && ctx.kind === "hoeren" ? ctxItem(ctx) : null;
+    if (item) ttsPlay(k, item.transcript);
+    return;
+  }
+  if (action === "tts-stop") { ttsStop(); return; }
+  if (action === "tts-rate") { ttsSetRate(ttsState().rate < 1 ? 1 : 0.75); return; }
   if (action === "sync-refresh") { pullFresh(true); return; }
 
   if (action === "start-mock" || action === "mock-again") { startMock(); return; }
@@ -1502,4 +1544,14 @@ window.addEventListener("focus", () => pullFresh(false));
 window.addEventListener("hashchange", () => {
   const t = initialTab();
   if (t !== state.tab) { state.tab = t; pageToTop = true; render(); }
+});
+
+// Audio-Player-UI live aktualisieren (Play/Pause-Zustand, Satz-Fortschritt),
+// ohne die ganze Seite neu zu rendern.
+onTts(() => {
+  const el = document.querySelector(".tts-player");
+  if (!el) return;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = ttsPlayerHtml(el.dataset.key, el.dataset.hint || "");
+  el.replaceWith(tmp.firstElementChild);
 });
