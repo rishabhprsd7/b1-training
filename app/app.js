@@ -4,6 +4,7 @@ import { STUDY_PLAN } from "./study-plan.js";
 import { getSyncMeta, setSyncMeta, syncReady, syncPull, syncPush } from "./sync.js";
 import { DOPPEL, DA_WOERTER, DA_REFLEXIV_NOTE, LERN_METHODE, SATZ_ROTATION, SPRECH_STRATEGIE, SPRECH_BEWERTUNG, SCHREIB_STRATEGIE, MUSTER_EMAIL } from "./redemittel.js";
 import { ttsAvailable, ttsState, onTts, ttsPlay, ttsPauseResume, ttsStop, ttsSetRate } from "./tts.js";
+import { getApiKey, setApiKey, clearApiKey, reviewLetter } from "./ai-review.js";
 
 const STORAGE_KEY = "b1sprint-state-v1";
 const EXAM_DATE = new Date("2026-07-15T00:00:00");
@@ -989,8 +990,107 @@ function renderSchreiben(item, p) {
     <div class="leitpunkte">${leitHtml}</div>
     <div class="ex-progress">${checkedCount} / ${n} Punkte abgedeckt</div>
     <textarea class="email-area" data-action-input="schreiben-draft" placeholder="Schreiben Sie hier Ihre E-Mail …">${esc(p.draft || "")}</textarea>
+    ${renderAiPanel(p)}
     <div><button class="mark-done-btn secondary" data-action="jump-schreibhilfe" style="margin-top:14px">→ Zur Schreibhilfe (Vorlage &amp; Redemittel)</button></div>
   `;
+}
+
+// ---------------------------------------------------- KI-Prüfer (Schreiben)
+// In-flight-/Fehlerzustand lebt nur im Modul (nicht persistiert); das
+// Ergebnis selbst wandert in den Übungs-Fortschritt und wird mitsynchronisiert.
+let aiBusyId = null;
+let aiError = null; // { id, msg }
+
+function wordCount(s) { const m = String(s || "").trim().match(/\S+/g); return m ? m.length : 0; }
+
+function renderAiPanel(p) {
+  const ctx = currentCtx();
+  const id = ctx ? ctx.id : "";
+  const words = wordCount(p.draft);
+  const busy = aiBusyId === id;
+  const err = aiError && aiError.id === id ? aiError.msg : null;
+
+  let body;
+  if (!getApiKey()) {
+    body = `
+      <div class="ai-desc">Lass deinen Brief wie in der echten Prüfung bewerten: Note A–D pro telc-Kriterium, Punkte&nbsp;/&nbsp;45, korrigierte Version und konkrete Tipps. Dafür brauchst du einmalig einen eigenen Anthropic-API-Schlüssel (console.anthropic.com → API Keys).</div>
+      <div class="ai-key-row">
+        <input type="password" id="ai-key-input" class="ai-key-input" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
+        <button class="mark-done-btn" data-action="ai-key-save">Speichern</button>
+      </div>
+      <div class="ai-note">🔒 Der Schlüssel bleibt nur auf diesem Gerät (localStorage) — er wird nie synchronisiert oder hochgeladen.</div>`;
+  } else if (busy) {
+    body = `<div class="ai-busy"><span class="ai-spinner"></span>Der Prüfer liest deinen Brief … (ca. 15–40 Sekunden)</div>`;
+  } else {
+    const tooShort = words < 15;
+    body = `
+      ${err ? `<div class="ai-error">⚠️ ${esc(err)}</div>` : ""}
+      <div class="ai-actions">
+        <button class="finish-btn ai-go" data-action="ai-review" ${tooShort ? "disabled" : ""}>${p.aiReview ? "Neu bewerten lassen" : "Brief bewerten lassen"} · ${words} ${words === 1 ? "Wort" : "Wörter"}</button>
+        <button class="mark-done-btn secondary" data-action="ai-key-forget">Schlüssel entfernen</button>
+      </div>
+      ${tooShort ? `<div class="ai-note">Schreib zuerst deinen Brief oben ins Feld (mindestens ~15 Wörter) — dann kann der Prüfer ihn bewerten.</div>` : ""}`;
+  }
+  return `<div class="ai-panel">
+    <div class="ai-head">🤖 KI-Prüfer <span class="ai-sub">telc-Bewertung deines Briefs per Claude</span></div>
+    ${body}
+    ${p.aiReview && !busy ? renderAiResult(p.aiReview) : ""}
+  </div>`;
+}
+
+function renderAiResult(r) {
+  const noteCls = n => "ai-grade g" + n;
+  const scoreCls = s => s >= 5 ? "s-top" : s >= 3 ? "s-mid" : "s-low";
+  const rows = r.criteria.map(c => `
+    <tr><td class="ai-crit">${esc(c.name)}</td><td class="ai-score ${scoreCls(c.score)}">${c.score}/5</td><td class="ai-fb">${esc(c.feedback)}</td></tr>`).join("");
+  const t = r.telc;
+  const offRows = [
+    ["I · Berücksichtigung der Leitpunkte", t.leitpunkte],
+    ["II · Kommunikative Gestaltung", t.gestaltung],
+    ["III · Formale Richtigkeit", t.korrektheit]
+  ].map(([name, g]) => `
+    <div class="ai-off-row"><span class="${noteCls(g.note)}">${esc(g.note)}</span><div><div class="ai-off-name">${esc(name)}</div><div class="ai-off-why">${esc(g.begruendung)}</div></div></div>`).join("");
+  const tipps = r.tipps.length ? `<div class="ai-tipps">${r.tipps.map(tip => `<div class="cue-item"><span class="cue-dot">→</span>${esc(tip)}</div>`).join("")}</div>` : "";
+  return `
+    <div class="ai-result">
+      <div class="ai-result-title">telc B1 Examiner Feedback</div>
+      <div class="ai-tablewrap"><table class="ai-table">
+        <thead><tr><th>Criterion</th><th>Score</th><th>Feedback</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div class="ai-off">
+        <div class="ai-off-head">Offizielle telc-Bewertung <span class="ai-points ${t.bestanden ? "ok" : "nope"}">${t.punkte} / 45 ${t.bestanden ? "· bestanden ✓" : "· unter 60 %"}</span></div>
+        ${offRows}
+        ${t.kommentar ? `<div class="ai-off-comment">${esc(t.kommentar)}</div>` : ""}
+      </div>
+      ${r.korrigiert ? `<details class="ai-korr"><summary>✏️ Korrigierte Version anzeigen</summary><div class="passage" style="white-space:pre-wrap">${esc(r.korrigiert)}</div></details>` : ""}
+      ${tipps}
+    </div>`;
+}
+
+async function runAiReview() {
+  const ctx = currentCtx();
+  if (!ctx || ctx.kind !== "schreiben" || aiBusyId) return;
+  const item = ctxItem(ctx);
+  const draft = (ctxProgress(ctx).draft || "").trim();
+  aiError = null;
+  aiBusyId = ctx.id;
+  render();
+  try {
+    const review = await reviewLetter(item, draft);
+    // Fortschritt zum Schreib-Zeitpunkt neu auflösen — währenddessen kann
+    // patchProgress das Objekt ersetzt haben (z. B. Leitpunkt abgehakt).
+    const store = ctx.mode === "lib" ? state.libProgress : state.progress;
+    const key = ctx.mode === "lib" ? ctx.id : ctx.kind;
+    if (store[key]) store[key] = { ...store[key], aiReview: review, aiReviewAt: Date.now() };
+    touch();
+    persist();
+  } catch (e) {
+    aiError = { id: ctx.id, msg: e.message };
+  } finally {
+    aiBusyId = null;
+    render();
+  }
 }
 
 function renderSprechen(item, p) {
@@ -1489,6 +1589,17 @@ function onClick(e) {
     patchProgress(p => ({ ...p, practiced: !p.practiced }));
     return;
   }
+  if (action === "ai-key-save") {
+    const inp = document.getElementById("ai-key-input");
+    const v = inp ? inp.value.trim() : "";
+    if (!v) return;
+    setApiKey(v);
+    aiError = null;
+    render();
+    return;
+  }
+  if (action === "ai-key-forget") { clearApiKey(); render(); return; }
+  if (action === "ai-review") { runAiReview(); return; }
   if (action === "jump-schreibhilfe" || action === "jump-sprechhilfe") {
     state = { ...state, openCat: null, openLib: null };
     switchTab(action === "jump-schreibhilfe" ? "schreiben" : "sprechen");
