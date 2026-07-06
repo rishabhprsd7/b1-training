@@ -1,0 +1,19 @@
+# Render Blueprint — deploys the B1 Sprint trainer as a static site.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: b1-sprint
+    runtime: static
+    # No build step — the app is plain HTML/CSS/JS in the app/ folder.
+    buildCommand: "echo 'static site — nothing to build'"
+    staticPublishPath: ./app
+    pullRequestPreviewsEnabled: false
+    # Single-page app: send any path to index.html.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
