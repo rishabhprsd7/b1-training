@@ -884,6 +884,19 @@ function renderLesen(item, p, reveal = true) {
       ${qHtml}`;
   }
 
+  // Zuordnungs-Aufgaben (Teil 1 Überschriften, Teil 3 Anzeigen): wie im
+  // gedruckten Test stehen die Optionen a–… ZUERST — man liest sie, bevor man
+  // zuordnet. Unter jeder beantworteten Zeile wird die gewählte (und ggf. die
+  // richtige) Option im Volltext wiederholt, damit niemand hin- und herscrollen muss.
+  function optionEcho(options, picked, sol) {
+    if (!picked) return "";
+    const textOf = id => { if (id === "x") return "Keine Anzeige passt."; const o = options.find(x => x.id === id); return o ? o.text : ""; };
+    const ok = picked === sol;
+    let html = `<div class="match-echo ${reveal ? (ok ? "right" : "wrong") : ""}">Deine Wahl: <strong>${esc(picked)}</strong> — ${esc(textOf(picked))}</div>`;
+    if (reveal && !ok) html += `<div class="match-echo right">Richtig: <strong>${esc(sol)}</strong> — ${esc(textOf(sol))}</div>`;
+    return html;
+  }
+
   if (item.type === "headline") {
     const answered = Object.keys(p.answers).length;
     const correct = item.texts.filter(t => p.answers[t.n] === t.sol).length;
@@ -894,13 +907,15 @@ function renderLesen(item, p, reveal = true) {
         if (picked) { if (reveal) { if (h.id === t.sol) cls += " correct"; else if (h.id === picked) cls += " incorrect"; } else if (h.id === picked) cls += " selected"; }
         return `<button class="${cls}" data-action="answer-lesen-match" data-n="${t.n}" data-choice="${h.id}" ${reveal && picked ? "disabled" : ""}>${h.id}</button>`;
       }).join("");
-      return `<div class="match-row"><div class="match-n">${t.n}</div><div class="match-text">${esc(t.body)}</div><div class="match-select">${chips}</div></div>`;
+      return `<div class="match-row"><div class="match-n">${t.n}</div><div class="match-text">${esc(t.body)}${optionEcho(item.headlines, picked, t.sol)}</div><div class="match-select">${chips}</div></div>`;
     }).join("");
     const legend = item.headlines.map(h => `<div class="ad-item"><span class="ad-id">${h.id}</span>${esc(h.text)}</div>`).join("");
     return `${reveal ? srcTag(item.source) : ""}<div class="ex-intro">${esc(item.intro)}</div>
+      <div class="legend-title">Überschriften a–${item.headlines[item.headlines.length - 1].id}</div>
+      <div class="ad-list">${legend}</div>
+      <div class="legend-title">Texte 1–${item.texts.length}</div>
       <div class="ex-progress">${answered} / ${item.texts.length} beantwortet${reveal ? ` · ${correct} richtig` : ""}</div>
-      ${rows}
-      <div class="ad-list">${legend}</div>`;
+      ${rows}`;
   }
 
   // ads
@@ -914,13 +929,16 @@ function renderLesen(item, p, reveal = true) {
       if (picked) { if (reveal) { if (id === s.sol) cls += " correct"; else if (id === picked) cls += " incorrect"; } else if (id === picked) cls += " selected"; }
       return `<button class="${cls}" data-action="answer-lesen-match" data-n="${s.n}" data-choice="${id}" ${reveal && picked ? "disabled" : ""}>${id}</button>`;
     }).join("");
-    return `<div class="match-row"><div class="match-n">${s.n}</div><div class="match-text">${esc(s.text)}</div><div class="match-select">${chips}</div></div>`;
+    return `<div class="match-row"><div class="match-n">${s.n}</div><div class="match-text">${esc(s.text)}${optionEcho(item.ads, picked, s.sol)}</div><div class="match-select">${chips}</div></div>`;
   }).join("");
-  const legend = item.ads.map(a => `<div class="ad-item"><span class="ad-id">${a.id}</span>${esc(a.text)}</div>`).join("");
+  const legend = item.ads.map(a => `<div class="ad-item"><span class="ad-id">${a.id}</span>${esc(a.text)}</div>`).join("")
+    + `<div class="ad-item"><span class="ad-id">x</span>Keine Anzeige passt.</div>`;
   return `${reveal ? srcTag(item.source) : ""}<div class="ex-intro">${esc(item.intro)}</div>
+    <div class="legend-title">Anzeigen a–${item.ads[item.ads.length - 1].id} (x = keine passt)</div>
+    <div class="ad-list">${legend}</div>
+    <div class="legend-title">Situationen</div>
     <div class="ex-progress">${answered} / ${item.situations.length} beantwortet${reveal ? ` · ${correct} richtig` : ""}</div>
-    ${rows}
-    <div class="ad-list">${legend}</div>`;
+    ${rows}`;
 }
 
 // Audio-Player für Hörverstehen: liest das Transkript vor (deutsche

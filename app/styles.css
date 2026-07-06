@@ -353,8 +353,9 @@ h1,h2,h3,p{margin:0}
 .opt-btn.incorrect{border-color:#E37B63;background:#FBEAE7;color:#C4432E}
 .q-hint{font-size:12.5px;color:#0B7359;margin-top:8px;background:#E8F5EF;padding:8px 11px;border-radius:9px;display:inline-block}
 
-/* reading passage */
-.passage{background:#F7F7F8;border-radius:14px;padding:16px 18px;font-size:14.5px;line-height:1.7;color:#33333B;white-space:pre-line;margin-bottom:20px;max-height:320px;overflow:auto}
+/* reading passage — full height, the modal itself scrolls (a capped inner
+   scrollbox is invisible on macOS and reads as abgeschnittener Text) */
+.passage{background:#F7F7F8;border-radius:14px;padding:16px 18px;font-size:14.5px;line-height:1.7;color:#33333B;white-space:pre-line;margin-bottom:20px}
 .match-row{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid #EFEFF1}
 .match-row:last-child{border-bottom:none}
 .match-n{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:#F4F4F5;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
@@ -365,9 +366,13 @@ h1,h2,h3,p{margin:0}
 .chip-btn.selected{border-color:#15151A;background:#15151A;color:#fff}
 .chip-btn.correct{border-color:#0E8C6D;background:#E8F5EF;color:#0B7359}
 .chip-btn.incorrect{border-color:#E37B63;background:#FBEAE7;color:#C4432E}
-.ad-list{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.ad-list{display:flex;flex-direction:column;gap:6px;margin:0 0 20px}
 .ad-item{display:flex;gap:10px;font-size:13px;line-height:1.5;padding:9px 12px;background:#F7F7F8;border-radius:10px}
 .ad-id{font-weight:800;color:#6B6B78;flex-shrink:0}
+.legend-title{font-size:13px;font-weight:800;margin-bottom:8px}
+.match-echo{font-size:12.5px;line-height:1.45;color:#6B6B78;margin-top:7px;background:#F7F7F8;border-radius:8px;padding:6px 10px}
+.match-echo.right{background:#E8F5EF;color:#0B7359}
+.match-echo.wrong{background:#FBEAE7;color:#C4432E}
 
 /* listening */
 .tts-player{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#F0F7F4;border:1px solid #CDE7DC;border-radius:13px;padding:10px 12px;margin-bottom:16px}
